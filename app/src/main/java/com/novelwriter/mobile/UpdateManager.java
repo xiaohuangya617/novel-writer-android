@@ -437,25 +437,46 @@ final class UpdateManager {
         connection.setRequestProperty("User-Agent", "NovelWriter-Android-Updater");
         connection.setRequestProperty("Accept", "application/vnd.github+json");
         int status = connection.getResponseCode();
-        if (status == 200) return connection;
+        if (status == 200) {
+            prefs.edit().remove("rateLimitFailures").apply();
+            return connection;
+        }
         String remaining = connection.getHeaderField("X-RateLimit-Remaining");
         String retryAfter = connection.getHeaderField("Retry-After");
         String reset = connection.getHeaderField("X-RateLimit-Reset");
-        boolean rateLimited = "0".equals(remaining) || retryAfter != null;
-        connection.disconnect();
+        boolean primaryLimit = "0".equals(remaining);
+        boolean rateLimited = primaryLimit || retryAfter != null;
+        String errorMessage = "";
+        try {
+            if (status == 403 && !rateLimited) {
+                InputStream errorStream = connection.getErrorStream();
+                if (errorStream != null) try (InputStream stream = errorStream) {
+                    errorMessage = new JSONObject(readSmall(stream)).optString("message").toLowerCase(Locale.ROOT);
+                } catch (Exception ignored) { }
+            }
+        } finally {
+            connection.disconnect();
+        }
+        rateLimited |= errorMessage.contains("rate limit") || errorMessage.contains("abuse detection");
         if (status == 404) throw new IllegalStateException("暂无正式发布版本");
         if (status == 429 || status == 403 && rateLimited) {
             long now = System.currentTimeMillis();
-            long retryAt = now + 60_000;
+            long headerRetryAt = 0;
             try {
-                if (retryAfter != null) retryAt = now + Math.min(Long.parseLong(retryAfter), 86_400) * 1000;
-                else if ("0".equals(remaining) && reset != null) retryAt = Long.parseLong(reset) * 1000;
+                if (retryAfter != null) headerRetryAt = now + Math.min(Long.parseLong(retryAfter), 86_400) * 1000;
             } catch (NumberFormatException ignored) { }
-            if (retryAt <= now) retryAt = now + 60_000;
-            retryAt = Math.min(retryAt, now + 86_400_000);
-            prefs.edit().putLong("retryCheckAt", retryAt).apply();
+            try {
+                if (primaryLimit && reset != null) headerRetryAt = Math.max(headerRetryAt,
+                        Math.min(Long.parseLong(reset), (now + 86_400_000) / 1000) * 1000);
+            } catch (NumberFormatException ignored) { }
+            boolean primaryWaitKnown = primaryLimit && headerRetryAt > now;
+            int failures = primaryWaitKnown ? 0 : Math.min(6, Math.max(0, prefs.getInt("rateLimitFailures", 0))) + 1;
+            long backoff = primaryWaitKnown ? 60_000 : Math.min(3_600_000L, 60_000L << (failures - 1));
+            long retryAt = Math.min(Math.max(now + backoff, headerRetryAt), now + 86_400_000);
+            prefs.edit().putLong("retryCheckAt", retryAt).putInt("rateLimitFailures", failures).apply();
             throw new IllegalStateException(rateLimitMessage(retryAt, status));
         }
+        prefs.edit().remove("rateLimitFailures").apply();
         if (status == 403) throw new IllegalStateException("GitHub 拒绝检查请求（HTTP 403），请检查当前网络或科学上网后重试");
         throw new IllegalStateException("更新服务暂不可用（" + status + "）");
     }
