@@ -18,6 +18,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -41,6 +44,7 @@ final class UpdateManager {
     private volatile long downloadId;
     private volatile long verifiedId = -1;
     private volatile int lastPercent = -1;
+    private volatile String lastProgressMessage;
 
     UpdateManager(Context context, Consumer<String> callback) {
         this.context = context.getApplicationContext();
@@ -113,16 +117,19 @@ final class UpdateManager {
                     failedDownload(id, "更新包校验失败，请重新下载");
                 }
             } else if (status == DownloadManager.STATUS_FAILED) {
-                failedDownload(id, "下载失败，请重新下载");
+                failedDownload(id, downloadFailureMessage(result));
             } else {
                 long received = result.getLong(result.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
                 int percent = (int) Math.min(99, Math.max(0, received * 100 / release.size));
-                if (percent != lastPercent) {
+                String message = status == DownloadManager.STATUS_PAUSED ? pausedDownloadMessage(result)
+                        : status == DownloadManager.STATUS_PENDING ? "等待系统开始下载" : null;
+                if (percent != lastPercent || !java.util.Objects.equals(message, lastProgressMessage)) {
                     lastPercent = percent;
+                    lastProgressMessage = message;
                     JSONObject details = new JSONObject();
                     details.put("percent", percent);
                     details.put("version", release.version);
-                    event("progress", null, details);
+                    event("progress", message, details);
                 }
             }
         } catch (Exception error) {
@@ -178,7 +185,18 @@ final class UpdateManager {
                 }
                 available(found, null);
             } catch (Exception error) {
-                event("error", error.getMessage() == null ? "检查更新失败" : error.getMessage(), null);
+                String message = checkFailureMessage(error);
+                Release cached = candidate;
+                if (cached != null) {
+                    try {
+                        PackageInfo installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+                        if (compareVersions(cached.version, installed.versionName) > 0) {
+                            available(cached, message + "；仍可重新下载此前发现的 " + cached.version + " 版本");
+                            return;
+                        }
+                    } catch (Exception ignored) { }
+                }
+                event("error", message, null);
             }
         });
     }
@@ -215,6 +233,7 @@ final class UpdateManager {
                 downloadId = id;
                 verifiedId = -1;
                 lastPercent = -1;
+                lastProgressMessage = null;
                 refresh();
             } catch (Exception error) {
                 JSONObject details = new JSONObject();
@@ -234,6 +253,7 @@ final class UpdateManager {
             downloadId = -1;
             verifiedId = -1;
             lastPercent = -1;
+            lastProgressMessage = null;
             prefs.edit().remove("downloadId").commit();
             downloads.remove(id);
             if (candidate != null) available(candidate, "下载已取消");
@@ -271,6 +291,7 @@ final class UpdateManager {
             downloadId = -1;
             verifiedId = -1;
             lastPercent = -1;
+            lastProgressMessage = null;
             prefs.edit().remove("downloadId").commit();
             downloads.remove(id);
             if (candidate != null) available(candidate, message);
@@ -286,6 +307,46 @@ final class UpdateManager {
             details.put("sizeMb", Math.round(release.size * 10.0 / 1048576) / 10.0);
             event("available", message, details);
         } catch (Exception ignored) { }
+    }
+
+    private static String checkFailureMessage(Exception error) {
+        if (error instanceof SocketTimeoutException) {
+            return "连接 GitHub 超时，请检查网络；如当前网络无法访问 GitHub，可开启科学上网后重试";
+        }
+        if (error instanceof UnknownHostException || error instanceof ConnectException) {
+            return "无法连接 GitHub，请检查网络；如当前网络无法访问 GitHub，可开启科学上网后重试";
+        }
+        return error.getMessage() == null ? "检查更新失败，请稍后重试" : error.getMessage();
+    }
+
+    private static String pausedDownloadMessage(Cursor result) {
+        int reason = result.getInt(result.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+        if (reason == DownloadManager.PAUSED_WAITING_FOR_NETWORK) {
+            return "等待网络连接；如当前网络无法访问 GitHub，可开启科学上网后重试";
+        }
+        if (reason == DownloadManager.PAUSED_QUEUED_FOR_WIFI) return "等待 Wi-Fi 连接";
+        if (reason == DownloadManager.PAUSED_WAITING_TO_RETRY) return "网络暂时中断，系统正在重试";
+        return "下载已暂停，等待系统继续";
+    }
+
+    private static String downloadFailureMessage(Cursor result) {
+        int reason = result.getInt(result.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+        if (reason == DownloadManager.ERROR_INSUFFICIENT_SPACE) return "存储空间不足，请清理空间后重新下载";
+        if (reason == DownloadManager.ERROR_DEVICE_NOT_FOUND || reason == DownloadManager.ERROR_FILE_ERROR
+                || reason == DownloadManager.ERROR_FILE_ALREADY_EXISTS) return "无法保存更新包，请检查手机存储后重试";
+        if (reason == DownloadManager.ERROR_TOO_MANY_REDIRECTS) return "下载地址跳转异常，请稍后重试";
+        if (reason == DownloadManager.ERROR_CANNOT_RESUME || reason == DownloadManager.ERROR_HTTP_DATA_ERROR) {
+            return "下载连接中断或超时，请检查网络；如当前网络无法访问 GitHub，可开启科学上网后重试";
+        }
+        if (reason == DownloadManager.ERROR_UNHANDLED_HTTP_CODE) {
+            return "下载服务器返回了无法处理的响应，请稍后重试";
+        }
+        if (reason == 403) return "下载服务器拒绝访问（HTTP 403），请检查当前网络或科学上网后重试";
+        if (reason == 404) return "更新包不存在（HTTP 404），请重新检查更新";
+        if (reason == 429) return "下载请求过于频繁（HTTP 429），请稍后重试";
+        if (reason >= 500 && reason <= 599) return "下载服务器暂不可用（HTTP " + reason + "），请稍后重试";
+        if (reason >= 400 && reason <= 499) return "下载请求失败（HTTP " + reason + "），请稍后重试";
+        return "下载失败（系统错误码 " + reason + "），请检查网络后重试";
     }
 
     private File updateFile(Release release) {
@@ -346,9 +407,14 @@ final class UpdateManager {
         connection.setRequestProperty("Accept", "application/vnd.github+json");
         int status = connection.getResponseCode();
         if (status == 200) return connection;
+        boolean rateLimited = "0".equals(connection.getHeaderField("X-RateLimit-Remaining"))
+                || connection.getHeaderField("Retry-After") != null;
         connection.disconnect();
         if (status == 404) throw new IllegalStateException("暂无正式发布版本");
-        if (status == 403 || status == 429) throw new IllegalStateException("检查次数过多，请稍后再试");
+        if (status == 429 || status == 403 && rateLimited) {
+            throw new IllegalStateException("GitHub 暂时限制检查请求（HTTP " + status + "），请稍后再试");
+        }
+        if (status == 403) throw new IllegalStateException("GitHub 拒绝检查请求（HTTP 403），请检查当前网络或科学上网后重试");
         throw new IllegalStateException("更新服务暂不可用（" + status + "）");
     }
 

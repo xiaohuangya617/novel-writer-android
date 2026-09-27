@@ -214,7 +214,7 @@ const saved = {
         loadApiSettings: () => JSON.stringify({ ...config, key: '' }),
         saveApiSettings: () => true, saveProject: json => (localStorage.setItem('native_project', json), true),
         chooseProject: () => localStorage.setItem('native_choose_called', 'yes'), pageReady: () => {},
-        appVersion: () => '1.21',
+        appVersion: () => '1.22',
         checkUpdate: () => { localStorage.setItem('update_check_called', 'yes'); },
         refreshUpdate: () => { localStorage.setItem('update_refresh_called', 'yes'); },
         downloadUpdate: () => { localStorage.setItem('update_download_called', 'yes'); },
@@ -238,12 +238,12 @@ const saved = {
     assert.equal(await nativeFreshPage.locator('#topBookName').innerText(), '测试作品');
     await nativeFreshPage.locator('#menuButton').click();
     await nativeFreshPage.locator('[data-sheet="version"]').click();
-    assert.match(await nativeFreshPage.locator('#sheetBody').innerText(), /1\.21/);
+    assert.match(await nativeFreshPage.locator('#sheetBody').innerText(), /1\.22/);
     assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_refresh_called')), 'yes');
     await nativeFreshPage.locator('#checkUpdate').click();
     assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_check_called')), 'yes');
-    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'available', version: '1.21', sizeMb: 2.5, notes: '修复更新流程' })));
-    assert.match(await nativeFreshPage.locator('#updatePanel').innerText(), /1\.21/);
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'available', version: '1.22', sizeMb: 2.5, notes: '修复更新流程' })));
+    assert.match(await nativeFreshPage.locator('#updatePanel').innerText(), /1\.22/);
     await nativeFreshPage.setViewportSize({ width: 320, height: 420 });
     assert.ok(await nativeFreshPage.locator('#downloadUpdate').evaluate(button => {
       const bounds=button.getBoundingClientRect();return bounds.left>=0&&bounds.right<=innerWidth&&bounds.height>=48;
@@ -256,6 +256,13 @@ const saved = {
     assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_cancel_called')), 'yes');
     await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'available', message: '下载已取消' })));
     assert.equal(await nativeFreshPage.locator('#downloadUpdate').isVisible(), true);
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'available', message: '连接 GitHub 超时；仍可重新下载此前发现的 1.22 版本' })));
+    assert.match(await nativeFreshPage.locator('#updatePanel').innerText(), /连接 GitHub 超时/);
+    assert.equal(await nativeFreshPage.locator('#downloadUpdate').innerText(), '重新下载');
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'progress', percent: 0 })));
+    assert.doesNotMatch(await nativeFreshPage.locator('#updatePanel').innerText(), /连接 GitHub 超时/);
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'progress', percent: 0, message: '等待网络连接' })));
+    assert.match(await nativeFreshPage.locator('#updatePanel').innerText(), /等待网络连接/);
     await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'error', message: '网络中断', canDownload: true })));
     assert.equal(await nativeFreshPage.locator('#downloadUpdate').innerText(), '重新下载');
     await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'downloaded', message: '下载完成，可以安装' })));
@@ -442,7 +449,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.21/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.22/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();
@@ -539,6 +546,30 @@ const saved = {
     await page.locator('#closeSheet').click();
     await page.locator('#discardChanges').click();
     assert.equal(await page.locator('#sheetBackdrop').isHidden(), true);
+    await page.locator('#menuButton').click();
+    await page.locator('[data-sheet="roles"]').click();
+    const originalRoleCount = await page.evaluate(() => book().characters.length);
+    await page.locator('#addRole').click();
+    await page.locator('#roleName').fill('朝日奈葵');
+    await page.locator('#roleForm button[type="submit"]').click();
+    assert.equal(await page.evaluate(() => book().characters.length), originalRoleCount + 1);
+    await page.locator('#addRole').click();
+    await page.locator('#roleName').fill(' 朝日奈葵 ');
+    await page.locator('#roleForm button[type="submit"]').click();
+    assert.match(await page.locator('#toast').innerText(), /已有同名角色/);
+    assert.equal(await page.evaluate(() => book().characters.length), originalRoleCount + 1);
+    await page.locator('#cancelRole').click();
+    await page.locator('#discardChanges').click();
+    await page.locator('#addRole').click();
+    await page.locator('#roleName').fill('苏晚');
+    await page.locator('#roleForm button[type="submit"]').click();
+    await page.locator('[data-edit-role]').last().click();
+    await page.locator('#roleName').fill('朝日奈葵');
+    await page.locator('#roleForm button[type="submit"]').click();
+    assert.match(await page.locator('#toast').innerText(), /已有同名角色/);
+    assert.deepEqual(await page.evaluate(() => book().characters.slice(-2).map(c => c.name)), ['朝日奈葵', '苏晚']);
+    await page.locator('#cancelRole').click();
+    await page.locator('#discardChanges').click();
     const preview = await page.evaluate(() => readableBody({ title: '第101章 新的线索', content: '# 第一章 新的线索\n\n**正文** <script>window.x=1</script>' }));
     assert.ok(preview.includes('<strong>正文</strong>'));
     assert.ok(!preview.includes('<h1>'));

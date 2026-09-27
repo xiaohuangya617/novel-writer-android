@@ -2,7 +2,7 @@
 
 面向安卓手机的 AI 小说创作工具。以书籍、章节和消息为主线，结合角色、动作、世界设定与写作提示，完成正文、摘要、角色成长和续写走向的生成。
 
-**当前版本：1.21（正式版）** · 支持 Android 8.0 及以上 · [下载 APK](https://github.com/xiaohuangya617/novel-writer-android/releases/download/1.21/1.21-NovelGenerator.apk) · [查看历次发布](https://github.com/xiaohuangya617/novel-writer-android/releases)
+**当前版本：1.22（正式版）** · 支持 Android 8.0 及以上 · [下载 APK](https://github.com/xiaohuangya617/novel-writer-android/releases/download/1.22/1.22-NovelGenerator.apk) · [查看历次发布](https://github.com/xiaohuangya617/novel-writer-android/releases)
 
 ## 快速开始
 
@@ -57,6 +57,7 @@ npm test
 
 | 版本 | 主要变化 |
 | --- | --- |
+| **1.22** | 本书角色新增与改名禁止重名；细化更新下载错误和网络超时提示；检查失败时可用已发现的版本重新下载。 |
 | **1.21** | 存档菜单区分 App 恢复存档与 HTML 分享存档，按正文导出、App 导出、App 分享、HTML 分享、App 恢复、初始化排列；系统下载任务支持状态恢复和及时取消。 |
 | **1.20** | 首个正式版；新增 App 内检查更新、更新说明、下载进度、取消下载、APK 校验和系统安装确认。改用长期发布签名，旧测试版需迁移一次。 |
 | **1.19** | 消息字号默认 16px、正文字号默认 20px；“当前版本”浮窗加入公开源码链接。 |
