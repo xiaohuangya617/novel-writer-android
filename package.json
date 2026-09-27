@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "node tests/smoke.js"
+  },
+  "devDependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

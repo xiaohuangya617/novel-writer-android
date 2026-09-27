@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AI 小说 · 手机界面</title>
+  <link rel="stylesheet" href="css/all.min.css">
+  <style>
+    :root{font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;color:#182725;background:#e7ebe7;letter-spacing:0}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;height:100%}button,input,textarea,select{font:inherit;letter-spacing:0}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.46}
+    .app{width:min(100%,440px);height:100dvh;min-height:0;margin:auto;display:flex;flex-direction:column;position:relative;overflow:hidden;background:#f8faf8;box-shadow:0 0 32px #1a292324}
+    .topbar{height:62px;min-height:62px;background:#20322e;color:#f7faf7;display:flex;align-items:center;gap:6px;padding:0 13px;border-bottom:3px solid #c8894b;position:relative}
+    .topbar .book-name{position:absolute;left:50%;transform:translateX(-50%);max-width:calc(100% - 218px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:750;text-align:center;color:#f7faf7;pointer-events:none}.topbar .icon-btn{width:48px;min-width:48px;height:48px}.topbar #archiveButton{margin-left:auto}
+    .icon-btn{width:34px;height:34px;min-width:34px;border:0;background:transparent;color:inherit;border-radius:5px;display:grid;place-items:center;font-size:17px}
+    .icon-btn:hover,.icon-btn:focus-visible{background:#ffffff24;outline:none}.workspace{flex:1;min-height:0;display:grid;grid-template-columns:128px minmax(0,1fr)}
+    .app.rail-compact .workspace{grid-template-columns:64px minmax(0,1fr)}
+    .rail{min-height:0;background:#edf1ec;border-right:1px solid #d4ddd6;display:flex;flex-direction:column}
+    .app.reader-focus .workspace{grid-template-columns:minmax(0,1fr)}.app.reader-focus .rail{display:none}
+    .rail-section{min-height:0;display:flex;flex-direction:column}.rail-section.books{height:40%;border-bottom:1px solid #cfdad2}.rail-section.chapters{flex:1}
+    .rail-head{height:48px;min-height:48px;padding:0 0 0 10px;display:flex;align-items:center;justify-content:space-between;color:#566660;font-size:11px;font-weight:750}
+    .rail-scroll{overflow-y:auto;min-height:0;padding:0 5px 8px}
+    .book-row,.chapter-row{position:relative;border:1px solid transparent;border-radius:5px;margin-bottom:5px;background:transparent;color:#374841;width:100%;text-align:left;display:flex;gap:5px;align-items:center}
+    .book-row{min-height:55px;padding:6px 5px}.book-row.active,.chapter-row.active{background:#dcebe3;border-color:#b3d0c0;color:#145641}
+    .book-spine{width:5px;align-self:stretch;min-height:32px;border-radius:2px;background:#c9874d;flex:none}.book-row:nth-child(2n) .book-spine{background:#638a93}
+    .book-meta{min-width:0;min-height:48px;flex:1;display:flex;flex-direction:column;justify-content:center}.book-title{font-size:11px;font-weight:750;line-height:1.3;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.book-count{font-size:10px;color:#778a81;margin-top:3px}
+    .chapter-row{min-height:48px;padding:6px 4px;line-height:1.3;gap:3px;white-space:nowrap;overflow:hidden}.chapter-no{font-size:10px;color:#83928a;flex:none}.chapter-title{min-width:0;font-size:10px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .rail-compact .rail-head{padding-left:6px}.rail-compact .rail-scroll{padding:0 3px 8px}.rail-compact .book-row{min-height:48px;padding:3px;gap:3px}.rail-compact .book-spine{width:4px;min-height:28px}.rail-compact .book-meta{min-height:40px}.rail-compact .book-title{font-size:10px;white-space:nowrap;display:block;overflow:hidden;text-overflow:ellipsis}.rail-compact .book-count,.rail-compact .chapter-title{display:none}.rail-compact .chapter-row{padding:6px 3px}
+    .empty-rail{padding:10px 5px;font-size:11px;line-height:1.5;color:#8b9992}
+    .main{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;position:relative}.tabs{height:49px;min-height:49px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid #e1e9e3;background:#fafcf9}.reader-scrollbar{position:absolute;top:49px;right:0;bottom:0;width:4px;background:#e4ebe5;z-index:2;pointer-events:none}.reader-scrollbar-thumb{position:absolute;left:0;right:0;min-height:24px;background:#6e9d7f;border-radius:3px}
+    .tab{position:relative;border:0;background:transparent;color:#728078;font-size:11px;font-weight:700;padding:3px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0}
+    .tab i{font-size:14px}.tab.active{color:#11664c}.tab.active:after{content:"";position:absolute;bottom:0;height:3px;width:38px;max-width:80%;background:#138060;border-radius:2px 2px 0 0}
+    .panel{flex:1;min-height:0;overflow-y:auto}.panel.reader-continuous{scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#8eaa97 #f2f5f1}.panel.reader-continuous::-webkit-scrollbar{width:6px}.panel.reader-continuous::-webkit-scrollbar-track{background:#f2f5f1}.panel.reader-continuous::-webkit-scrollbar-thumb{background:#8eaa97;border-radius:3px}.panel-header{padding:15px 14px 10px;border-bottom:1px solid #e5ebe6}.eyebrow{font-size:10px;font-weight:750;color:#b67943}.panel-header h1{font-size:18px;line-height:1.3;margin:3px 0 5px;overflow-wrap:anywhere}.subtle{font-size:11px;color:#7b8c81;line-height:1.5}
+    .messages{display:flex;flex-direction:column;min-height:100%;padding:12px 12px 18px;gap:11px}.message{max-width:95%;font-size:12px;line-height:1.65;border-radius:6px;padding:10px 11px;white-space:pre-wrap;overflow-wrap:anywhere}
+    .message.assistant{background:#eff4ef;color:#31463d;align-self:flex-start;border-left:3px solid #81aa92}.message.user{background:#e5f3ec;color:#1b513f;align-self:flex-end}.message.pending{display:flex;align-items:center;gap:8px}.message.pending i{color:#16805d}.message.error{border-left-color:#b43e37;background:#fff1ef}.message .msg-meta{display:block;margin-top:6px;color:#7b8b80;font-size:10px}.message .retry-btn{margin-top:9px;height:36px;min-height:36px}
+    .composer{padding:8px 10px 12px;border-top:1px solid #e0e8e1;background:#fafcf9;container-type:inline-size}.composer textarea{width:100%;resize:none;height:144px;min-height:144px;border:1px solid #cbd9cd;border-radius:5px;background:#fff;padding:8px 9px;font-size:12px;color:#20342a;outline:none;line-height:1.5}
+    .composer textarea:focus,.field:focus{border-color:#238764;box-shadow:0 0 0 2px #23876418}.composer.is-busy{background:#e9eeea}.composer textarea:disabled{background:#e1e7e2;border-color:#bfcac2;color:#536259;-webkit-text-fill-color:#536259;opacity:1;cursor:wait}.composer-actions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-top:7px}.composer-actions .btn{width:100%;min-width:0;padding:0 2px;gap:4px}
+    @container (max-width: 305px){.composer-actions .btn span{display:none}.composer-actions .btn{font-size:16px}}
+    .btn{height:48px;min-height:48px;border:1px solid #c6d4c9;background:#fff;border-radius:5px;padding:0 10px;color:#2d5c49;font-size:11px;font-weight:750;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+    .btn.primary{background:#136d51;border-color:#136d51;color:#fff}.btn.warn{color:#a94e40;border-color:#e4c4bd}.btn.danger{background:#b43e37;border-color:#b43e37;color:#fff}.btn.wide{width:100%}.btn:focus-visible,.row-more:focus-visible,.book-row:focus-visible,.chapter-row:focus-visible,.tab:focus-visible{outline:2px solid #158163;outline-offset:1px}
+    .reader-toolbar{position:sticky;top:0;z-index:1;height:58px;padding:5px 10px 5px 14px;display:flex;align-items:center;gap:4px;background:#fff;border-bottom:1px solid #e5ebe6}.reader-position{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reader-toolbar .icon-btn{color:#49725c;width:48px;min-width:48px;height:48px}.reader-toolbar .icon-btn[aria-pressed="true"]{background:#e5f3ec;color:#136d51}.reader{padding:15px 14px 35px}.reader-stream .reader{border-bottom:1px solid #dfe8df}.reader-stream .reader:last-child{min-height:calc(100dvh - 169px)}.reader h1{font-size:19px;line-height:1.4;margin:5px 0 8px}.reader-meta{font-size:10px;color:#819087;padding-bottom:15px;border-bottom:1px solid #e5ebe6}.summary{padding:11px 12px;background:#f2f5ef;border-left:3px solid #c68a52;margin:16px 0 20px;font-size:11px;line-height:1.7;color:#4b5d50}.summary strong{display:block;color:#6c593c;font-size:11px;margin-bottom:2px}.prose{font-size:var(--reader-font-size,14px);line-height:1.9;color:#28352e;overflow-wrap:anywhere}.prose p{margin:0 0 1em}.prose h1,.prose h2,.prose h3{font-size:1.15em;margin:1.3em 0 .6em}.prose blockquote{margin:1em 0;padding-left:12px;border-left:3px solid #a6bbac;color:#52685b}.prose pre{overflow-x:auto;padding:10px;background:#f2f5f1}.prose code{white-space:pre-wrap}.prose a{color:#136d51}
+    .form-view{padding:14px}.form-view h1{font-size:18px;margin:0 0 4px}.form-intro{font-size:11px;color:#809085;margin:0 0 16px}.form-group{margin-bottom:15px}.form-label{display:block;font-size:11px;color:#44574a;font-weight:750;margin-bottom:6px}.field{width:100%;border:1px solid #ccd9cf;border-radius:5px;padding:9px 10px;background:#fff;color:#20332a;font-size:12px;outline:none}.form-view textarea.field{height:clamp(210px,28dvh,320px);min-height:210px;max-width:100%;resize:vertical;line-height:1.6}
+    .form-footer{position:sticky;bottom:0;background:#fff;padding:10px 0 3px;display:flex;align-items:center;justify-content:space-between;gap:8px}.save-status{font-size:11px;color:#68816e;white-space:nowrap}
+    .drawer-backdrop,.sheet-backdrop{position:absolute;inset:0;background:#101c17a8;z-index:20}.drawer{height:100%;width:min(78%,286px);overflow-y:auto;background:#f9fbf8;box-shadow:5px 0 22px #17291d30;display:flex;flex-direction:column}
+    .drawer-head{height:67px;background:#20322e;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between}.drawer-head strong{font-size:16px}.drawer-head .icon-btn{width:48px;min-width:48px;height:48px}.drawer-group{padding:12px 9px 6px}.drawer-label{font-size:10px;color:#91a095;text-transform:uppercase;font-weight:800;padding:0 9px 7px}.drawer-item{display:flex;gap:12px;width:100%;height:48px;align-items:center;border:0;background:transparent;border-radius:5px;color:#34463a;text-align:left;padding:0 12px;font-size:13px;font-weight:650}.drawer-item:hover{background:#e8f1e9}.drawer-item i{width:18px;text-align:center;color:#43715a}.drawer-sep{border-top:1px solid #e0e8e0;margin:6px 15px}.drawer-foot{margin-top:auto;padding:14px;color:#8a998e;font-size:10px}
+    .sheet-backdrop{z-index:30;display:flex;align-items:flex-end}.sheet{width:100%;max-height:88%;overflow-y:auto;background:#fff;border-radius:8px 8px 0 0;box-shadow:0 -7px 24px #12221930;padding-bottom:max(20px,env(safe-area-inset-bottom))}
+    .discard-backdrop{position:absolute;inset:0;z-index:35;background:#101c17b8;display:flex;align-items:flex-end}.discard-dialog{width:100%;background:#fff;border-radius:8px 8px 0 0;padding:18px 16px max(20px,env(safe-area-inset-bottom))}.discard-dialog h2{font-size:16px;margin:0 0 10px}
+    .sheet-head{height:57px;display:flex;align-items:center;padding:0 10px 0 16px;border-bottom:1px solid #e6ece6;position:sticky;top:0;background:#fff;z-index:1}.sheet-head h2{font-size:16px;margin:0;flex:1}.sheet-body{padding:16px}.sheet .icon-btn{color:#627268;width:48px;min-width:48px;height:48px}.sheet .icon-btn:hover{background:#eaf1eb}
+    .sheet-list{display:grid;gap:8px}.sheet-row{border:1px solid #e0e7e0;border-radius:6px;padding:10px 11px;background:#fbfcfa}.sheet-row strong{font-size:12px;display:block;line-height:1.4}.sheet-row small{font-size:11px;color:#788a7c;line-height:1.5;display:block;margin-top:3px}.sheet-row .row-actions{display:flex;gap:6px;margin-top:10px}.sheet-row.library-row{display:flex;align-items:center;gap:8px;height:78px;min-height:78px;max-height:78px;overflow:hidden}.library-row .row-info{min-width:0;flex:1}.library-row .row-info strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.library-row .row-info small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}.library-row .icon-btn{width:48px;min-width:48px;height:48px;color:#ae4a40}
+    .sheet-form .form-group{margin-bottom:13px}.sheet-form textarea.field{min-height:80px;resize:vertical}.sheet-actions{display:flex;gap:8px;margin-top:14px}.sheet-actions .btn{flex:1}.mini-note{font-size:11px;color:#7d8d81;line-height:1.6;margin:0 0 12px}.font-size-control{display:flex;align-items:center;gap:12px}.font-size-control input{flex:1;min-width:0;accent-color:#136d51}.font-size-control output{width:44px;text-align:right;font-size:14px;font-weight:750;color:#245b44}
+    .help-copy{font-size:12px;line-height:1.7;color:#31463d}.help-copy p{margin:0 0 12px}.help-copy p:last-child{margin-bottom:0}.help-copy strong{color:#176449}
+    .choice{width:100%;height:148px;min-height:148px;max-height:148px;padding:11px 14px;text-align:left;border:1px solid #cfded3;border-radius:6px;background:#fff;margin-bottom:9px;display:flex;flex-direction:column;overflow:hidden}.choice strong{font-size:13px;color:#275b46;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.choice span{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;font-size:11px;line-height:1.6;color:#697c6f;margin-top:5px;white-space:pre-line;overflow-wrap:anywhere}
+    .growth-card{margin:0;padding:0;overflow:hidden}.growth-card:not([open]){height:78px;min-height:78px;max-height:78px}.growth-card summary{height:76px;padding:9px 11px;display:flex;flex-direction:column;gap:5px;list-style:none}.growth-card summary::-webkit-details-marker{display:none}.growth-heading{display:flex;align-items:center;gap:6px;min-width:0;height:18px;flex:none}.growth-heading strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.growth-count,.growth-latest{font-size:10px;color:#75877a;font-weight:500;white-space:nowrap;flex:none}.growth-heading i{color:#698474;font-size:12px;flex:none}.growth-card[open] .growth-heading i{transform:rotate(180deg)}.growth-preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:11px;line-height:1.55;color:#4b5d50;white-space:pre-line;overflow-wrap:anywhere}.growth-history{border-top:1px solid #e0e7e0;padding:4px 12px 10px}.growth-entry{padding:9px 0;border-bottom:1px solid #e9eee9;font-size:11px;line-height:1.6;color:#4b5d50;white-space:pre-wrap;overflow-wrap:anywhere}.growth-entry:last-child{border-bottom:0}
+    .library-row [data-edit-role],.library-row [data-edit-action]{color:#49725c}
+    details{border:1px solid #e1e9e2;border-radius:5px;padding:10px;margin-top:12px}summary{font-size:12px;font-weight:750;color:#3d5b4b;cursor:pointer}details .form-group:first-of-type{margin-top:13px}
+    .toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);z-index:50;border-radius:5px;background:#20352c;color:#fff;padding:9px 13px;font-size:11px;line-height:1.4;box-shadow:0 5px 22px #14251e44;text-align:center}
+    .storage-error{background:#fff0ed;color:#9d312e;padding:7px 12px;font-size:11px;line-height:1.5}
+    .reader-loading{position:absolute;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;gap:9px;background:#ffffffed;color:#365d48;font-size:13px;font-weight:700}
+    [hidden]{display:none!important}
+    @media(max-width:359px){.workspace{grid-template-columns:80px minmax(0,1fr)}.app.rail-compact .workspace{grid-template-columns:64px minmax(0,1fr)}.book-row{min-height:55px;padding:5px 3px;gap:3px}.book-row .book-title{font-size:10px}.book-count,.chapter-title{display:none}.tab{font-size:10px}.tab i{font-size:13px}}
+    @media(max-height:560px){.topbar{height:52px;min-height:52px}.tabs{height:43px;min-height:43px}.composer textarea{height:clamp(64px,16dvh,100px);min-height:64px}.composer{padding-bottom:7px}.reader-scrollbar{top:43px}.form-view textarea.field{min-height:120px;height:30dvh}.sheet{max-height:94%}}
+    @media(min-width:700px){body{display:flex;align-items:center}.app{height:min(880px,96vh);border:1px solid #c9d3cb;border-radius:6px}}
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar">
+      <button class="icon-btn" id="menuButton" aria-label="打开菜单" title="菜单"><i class="fa-solid fa-bars"></i></button>
+      <button class="icon-btn" id="railToggleButton" aria-label="压缩书架和章节" title="压缩书架和章节" aria-pressed="false"><i class="fa-solid fa-angles-left"></i></button>
+      <span class="book-name" id="topBookName"></span>
+      <button class="icon-btn" id="archiveButton" aria-label="存档" title="存档"><i class="fa-solid fa-box-archive"></i></button>
+    </header>
+    <div class="storage-error" id="storageError" role="alert" hidden>保存失败。请保持应用打开，并导出项目存档。</div>
+    <div class="workspace">
+      <aside class="rail" aria-label="作品和章节">
+        <section class="rail-section books"><div class="rail-head"><span>书架</span></div><div class="rail-scroll" id="booksList"></div></section>
+        <section class="rail-section chapters"><div class="rail-head"><span>章节</span></div><div class="rail-scroll" id="chaptersList"></div></section>
+      </aside>
+      <main class="main">
+        <nav class="tabs" aria-label="主视图">
+          <button class="tab active" data-tab="messages"><i class="fa-regular fa-comment-dots"></i><span>消息</span></button>
+          <button class="tab" data-tab="reader"><i class="fa-solid fa-book-open"></i><span>正文</span></button>
+          <button class="tab" data-tab="world"><i class="fa-solid fa-globe"></i><span>设定</span></button>
+          <button class="tab" data-tab="prompt"><i class="fa-solid fa-sliders"></i><span>提示</span></button>
+        </nav>
+        <div class="panel" id="panel"></div>
+        <div class="reader-scrollbar" id="readerScrollbar" aria-hidden="true" hidden><div class="reader-scrollbar-thumb" id="readerScrollbarThumb"></div></div>
+        <div class="composer" id="composer"><textarea id="instruction" aria-label="创作指令" placeholder="写下这章要发生的事…"></textarea><div class="composer-actions"><button class="btn" id="continueButton" aria-label="续写" title="续写"><i class="fa-solid fa-arrow-right"></i><span>续写</span></button><button class="btn" id="refillButton" aria-label="回填上次消息" title="回填上次消息"><i class="fa-solid fa-rotate-left"></i><span>回填</span></button><button class="btn" id="clearButton" aria-label="清空编辑框" title="清空编辑框"><i class="fa-solid fa-eraser"></i><span>清空</span></button><button class="btn warn" id="stopButton" aria-label="停止生成" title="停止生成" disabled><i class="fa-solid fa-stop"></i><span>停止</span></button><button class="btn primary" id="newChapterButton" aria-label="发送消息" title="发送消息"><i class="fa-solid fa-paper-plane"></i><span>发送</span></button></div></div>
+      </main>
+    </div>
+    <div class="drawer-backdrop" id="drawerBackdrop" hidden><aside class="drawer" role="navigation" aria-label="功能菜单"><div class="drawer-head"><strong>工作台</strong><button class="icon-btn" id="closeDrawer" aria-label="关闭菜单" title="关闭"><i class="fa-solid fa-xmark"></i></button></div><div class="drawer-group"><div class="drawer-label">创作资料</div><button class="drawer-item" data-sheet="books"><i class="fa-solid fa-book"></i> 书架管理</button><button class="drawer-item" data-sheet="actions"><i class="fa-solid fa-person-running"></i> 全局设定库</button><button class="drawer-item" data-sheet="globalRoles"><i class="fa-solid fa-address-card"></i> 全局角色库</button><button class="drawer-item" data-sheet="roles"><i class="fa-solid fa-users"></i> 本书角色库</button><button class="drawer-item" data-sheet="growth"><i class="fa-solid fa-seedling"></i> 本书角色成长</button></div><div class="drawer-sep"></div><div class="drawer-group"><button class="drawer-item" data-sheet="api"><i class="fa-solid fa-sliders"></i> 设置</button><button class="drawer-item" data-sheet="fontSize"><i class="fa-solid fa-text-height"></i> 正文字号</button></div><div class="drawer-sep"></div><div class="drawer-group"><button class="drawer-item" data-sheet="help"><i class="fa-solid fa-circle-question"></i> 使用说明</button><button class="drawer-item" data-sheet="version"><i class="fa-solid fa-circle-info"></i> 当前版本</button></div><div class="drawer-foot">AI 小说 · 移动创作</div></aside></div>
+    <div class="sheet-backdrop" id="sheetBackdrop" hidden><section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="sheet-head"><h2 id="sheetTitle"></h2><button class="icon-btn" id="closeSheet" aria-label="关闭浮窗" title="关闭"><i class="fa-solid fa-xmark"></i></button></div><div class="sheet-body" id="sheetBody"></div></section></div>
+    <div class="discard-backdrop" id="discardBackdrop" hidden><section class="discard-dialog" role="alertdialog" aria-modal="true" aria-labelledby="discardTitle"><h2 id="discardTitle">放弃未保存的修改？</h2><p class="mini-note">当前输入尚未保存。</p><div class="sheet-actions"><button class="btn" id="keepEditing">继续编辑</button><button class="btn danger" id="discardChanges">放弃修改</button></div></section></div>
+    <div class="reader-loading" id="readerLoading" role="status" aria-live="polite" hidden><i class="fa-solid fa-spinner fa-spin"></i>正在准备连续阅读…</div>
+    <div class="toast" id="toast" role="status" hidden></div>
+  </div>
+  <script src="version.js"></script>
+  <script src="novel-core.js"></script>
+  <script src="markdown-it.min.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const shortChapterTitle=value=>String(value||'未命名').replace(/^第\s*(?:\d+|[零〇一二三四五六七八九十百千两]+)\s*章\s*/,'');
+    const readerMarkdown=markdownit({html:false,linkify:false,breaks:true}).disable('image');
+    const uid = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+    const seed = {
+      books:[
+        {id:'book-fog',name:'雾港纪事',currentChapterId:'fog-3',worldview:'雾港依山临海，每逢涨潮，旧城的钟楼会比港口报时慢七分钟。港务局封存了二十年前的航行记录。',plotSet:'林澈追查父亲失踪的航线，从钟楼异常、旧船员名单和潮汐记录中拼出同一夜发生的事。',globalPrompt:'你是一位擅长悬疑长篇的小说作者。保持线索可追溯，人物行为要有清晰动机。',writingStyle:'语言克制，场景具体。每章推进一个新线索，结尾留下自然的悬念。',characters:[{id:'char-lin',name:'林澈',appearance:'二十七岁，左眉有浅疤。',personality:'谨慎，擅长记住声音和时间。',special:'曾在港务局做档案员。',relationship:'林远之子。',growth:[{chapterId:'fog-2',chapNo:2,text:'发现父亲失踪前曾主动修改航线记录，不再完全相信旧档案。'},{chapterId:'fog-3',chapNo:3,text:'第一次主动向港务局内部人求助。'}]},{id:'char-su',name:'苏晚',appearance:'常穿深色雨衣。',personality:'直率，习惯先行动再解释。',special:'港口无线电维修员。',relationship:'林澈的旧友。',growth:[{chapterId:'fog-3',chapNo:3,text:'决定将私藏的旧频段录音交给林澈。'}]}],chapters:[
+          {id:'fog-1',title:'雨中的钟声',content:'雨落到港口的时候，钟楼刚敲过九下。\n\n林澈看了眼腕表，指针才走到八点五十三分。街边的报刊亭已经打烊，只有海事局那面旧公告牌还亮着一盏灯。\n\n他把父亲留下的航行记录从衣袋里取出来。纸角被潮气浸软，最后一页却格外干净，像有人在那天夜里重新换过。',summary:'林澈回到雾港，发现钟楼报时与实际时间相差七分钟，并察觉父亲留下的航行记录被人动过。',savedAt:Date.now()-3*86400000,checkResult:[]},
+          {id:'fog-2',title:'失联的航线',content:'第二天清晨，海风把码头的铁门吹得一下一下撞向门框。\n\n林澈在档案室找到那条失联航线的副本。原本应该经过南灯塔的船，被人用红笔改到了礁石更密的北侧。\n\n签字栏里的名字属于他的父亲。',summary:'林澈在港务局查到被改动的航线副本，签字人竟是父亲；他开始怀疑失踪案另有隐情。',savedAt:Date.now()-2*86400000,checkResult:[]},
+          {id:'fog-3',title:'旧频段',content:'苏晚把录音机放到桌上，没有立刻按下播放键。\n\n“这段频率，二十年前就停用了。”她说。\n\n窗外有人经过，雨靴踩过积水，声音很快消失在楼梯口。林澈看着她的手，发现她一直按着录音机的盖子。\n\n“我听过一遍，”苏晚说，“里面有你父亲的声音。”',summary:'苏晚拿出一段旧频段录音，透露其中有林澈父亲的声音；林澈决定追查录音来源。',savedAt:Date.now()-86400000,checkResult:[]}],chatHistory:[{role:'assistant',content:'《雾港纪事》已打开。当前为第 3 章「旧频段」。',ts:Date.now()-100000},{role:'user',content:'下一章让林澈听完录音，再发现其中有一句话被人为抹掉。',ts:Date.now()-80000},{role:'assistant',content:'已记录创作方向。可选择“续写”，先查看三条剧情走向。',ts:Date.now()-79000}]},
+        {id:'book-star',name:'星屿来信',currentChapterId:'star-2',worldview:'星屿群岛靠信鸥传递纸质信件，岛与岛之间的航班每周只有两次。',plotSet:'许遥寻找一封没有寄件人的来信，逐步揭开母亲年轻时离开星屿的原因。',globalPrompt:'你是一位擅长人物关系与日常叙事的作者。',writingStyle:'明亮、节制，重视日常细节。',characters:[{id:'char-xu',name:'许遥',appearance:'短发，喜欢背帆布包。',personality:'温和但固执。',special:'在星屿邮局工作。',relationship:'母亲曾在主岛生活。',growth:[]}],chapters:[{id:'star-1',title:'没有署名的信',content:'海风把信封吹到了柜台边。\n\n许遥伸手按住它，才发现封口没有盖章。',summary:'许遥在邮局收到一封没有寄件人的信。',savedAt:Date.now()-2*86400000,checkResult:[]},{id:'star-2',title:'南岸渡船',content:'清晨的渡船上，许遥把那封信放在膝头。\n\n她没有拆开，因为信封上的笔迹让她想起了母亲。',summary:'许遥带着来信登上南岸渡船，认出信封上熟悉的笔迹。',savedAt:Date.now()-86400000,checkResult:[]}],chatHistory:[{role:'assistant',content:'《星屿来信》已打开。',ts:Date.now()-30000}]}
+      ],
+      actions:[{id:'action-search',name:'翻查旧档',keyPoints:'先确认档案编号与日期，再对照涂改痕迹。',linesUsage:'避免角色直接得出结论，让发现逐步推进。',descriptionTips:'写出纸张、印章和保存环境的细节。'},{id:'action-listen',name:'辨认录音',keyPoints:'先听背景噪声，再确认语音中的时间与地点。',linesUsage:'台词保留不确定感。',descriptionTips:'用停顿和杂音制造信息缺口。'}],
+      activeBookId:'book-fog',selectedChapterId:'fog-3',activeTab:'messages',apiConfig:{url:'https://api.deepseek.com/chat/completions',model:'deepseek-flash',temperature:'1.0',topP:'0.92',presence:'0.5',frequency:'0.4',repetition:'1.15',maxTokens:'60000',ctxChapters:'5',stopWords:'',thinking:false,reasoning:'high'}
+    };
+    const nativeHost=typeof AndroidBridge!=='undefined';
+    const defaultAuthorPrompt='你是一位经验丰富的长篇小说作家。请根据本书设定、角色资料、既有章节和本次创作指令写作。保持人物性格、身份、关系与成长经历前后一致，让行动源于明确动机，情节变化有铺垫和因果。优先呈现具体场景、可感知的细节与有目的的对话，少用空泛总结和重复解释。每章应推进人物关系或主线，并自然承接前文；当资料冲突时，以本次用户指令和最新成长状态为准。直接输出可阅读的小说正文，不解释写作过程。';
+    const readerSize=value=>Number.isInteger(value)&&value>=12&&value<=22?value:14;
+    const emptyState=()=>({books:[],actions:[],globalCharacters:[],readerFontSize:14,activeBookId:null,selectedChapterId:null,activeTab:'messages',apiConfig:structuredClone(seed.apiConfig),railCompact:false,readerContinuous:false});
+    const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+    function validLibrary(books,actions,globalCharacters=[]){
+      if(!Array.isArray(books)||!Array.isArray(actions)||!Array.isArray(globalCharacters))return false;
+      if(new Set(books.map(b=>b?.id)).size!==books.length||new Set(actions.map(a=>a?.id)).size!==actions.length||new Set(globalCharacters.map(c=>c?.id)).size!==globalCharacters.length)return false;
+      if(actions.some(a=>!record(a)||typeof a.id!=='string'||!a.id||typeof a.name!=='string'||['keyPoints','linesUsage','descriptionTips'].some(k=>a[k]!=null&&typeof a[k]!=='string')))return false;
+      if(globalCharacters.some(c=>!record(c)||typeof c.id!=='string'||!c.id||typeof c.name!=='string'||!c.name.trim()||['appearance','personality','special','relationship'].some(k=>c[k]!=null&&typeof c[k]!=='string')||(c.tags!=null&&(!Array.isArray(c.tags)||c.tags.some(t=>typeof t!=='string')))||(c.relationships!=null&&!Array.isArray(c.relationships))))return false;
+      return books.every(b=>record(b)&&typeof b.id==='string'&&!!b.id&&typeof b.name==='string'&&Array.isArray(b.chapters)&&Array.isArray(b.characters)&&(b.chatHistory==null||Array.isArray(b.chatHistory))&&
+        ['worldview','plotSet','globalPrompt','writingStyle','draft','pendingInstruction'].every(k=>b[k]==null||typeof b[k]==='string')&&
+        new Set(b.chapters.map(c=>c?.id)).size===b.chapters.length&&new Set(b.characters.map(c=>c?.id)).size===b.characters.length&&
+        b.chapters.every(c=>record(c)&&typeof c.id==='string'&&!!c.id&&typeof c.content==='string'&&['title','summary','prompt'].every(k=>c[k]==null||typeof c[k]==='string'))&&
+        b.characters.every(c=>record(c)&&typeof c.id==='string'&&!!c.id&&typeof c.name==='string'&&(c.growth==null||Array.isArray(c.growth)&&c.growth.every(g=>record(g)&&typeof g.text==='string'&&(g.chapterId==null||typeof g.chapterId==='string')&&(g.chapNo==null||Number.isFinite(Number(g.chapNo))))))&&
+        (b.chatHistory||[]).every(m=>record(m)&&(m.role==='user'||m.role==='assistant')&&typeof m.content==='string'&&(m.retry==null||typeof m.retry==='string')&&(m.costLabel==null||typeof m.costLabel==='string')));
+    }
+    let state,storageDamaged=false,settingsDamaged=false,projectSaveFailed=false;
+    try {
+      const raw=nativeHost?AndroidBridge.loadProject():localStorage.getItem('novel_mobile_ui_demo_v1');
+      const saved=raw?JSON.parse(raw):null;
+      if((!raw&&nativeHost&&AndroidBridge.hasProject())||(raw&&(!record(saved)||!validLibrary(saved.books,saved.actions,saved.globalCharacters===undefined?[]:saved.globalCharacters))))throw Error('存档结构无效');
+      state=saved||emptyState();
+      state.globalCharacters ||= [];
+      state.readerFontSize=readerSize(state.readerFontSize);
+      state.readerContinuous=false;
+    }catch(e){state=emptyState();storageDamaged=true}
+    $('app').style.setProperty('--reader-font-size',`${state.readerFontSize}px`);
+    let apiKey='';
+    try{const settings=nativeHost?AndroidBridge.loadApiSettings(JSON.stringify(state.apiConfig||seed.apiConfig)):localStorage.getItem('novel_mobile_api_settings_v1');
+      if(nativeHost&&!settings)throw Error('AI 设置无法读取');
+      if(settings){const saved=JSON.parse(settings);if(!record(saved)||typeof saved.key!=='string'||typeof saved.url!=='string'||typeof saved.model!=='string')throw Error('AI 设置结构无效');apiKey=saved.key;delete saved.key;state.apiConfig=saved}
+      else apiKey=localStorage.getItem('novel_mobile_ui_demo_key')||'';
+    }catch(e){settingsDamaged=true}
+    function normalizeBooks(books){for(const item of books){
+      item.chatHistory ||= [];
+      if(item.pendingSummaryChapterId){const pending=item.chapters?.find(ch=>ch.id===item.pendingSummaryChapterId);if(pending&&!pending.summary){pending.pendingSummary=true;pending.pendingSummaryUsage=item.pendingSummaryUsage||null}delete item.pendingSummaryChapterId;delete item.pendingSummaryUsage}
+      for(const pending of item.chapters||[]){if(!pending.pendingSummary||pending.summary)continue;if(nativeHost&&state.pendingNativeTask?.bookId===item.id&&state.pendingNativeTask?.phase==='summary'&&state.pendingNativeTask?.chapterId===pending.id)continue;const retry=`summary:${pending.id}`;const legacy=item.chatHistory.find(message=>message.retry==='summary');if(legacy)legacy.retry=retry;if(!item.chatHistory.some(message=>message.retry===retry))item.chatHistory.push({role:'assistant',content:'上次资料整理未完成，正文仍已保存。',error:true,retry,ts:Date.now()})}
+      if(item.pendingInstruction&&!(nativeHost&&state.pendingNativeTask?.bookId===item.id&&state.pendingNativeTask?.phase==='chapter')&&!item.chatHistory.some(message=>message.retry==='chapter'))item.chatHistory.push({role:'assistant',content:'上次正文请求未完成，创作指令已保留。',error:true,retry:'chapter',ts:Date.now()});
+    }}
+    normalizeBooks(state.books);
+    let activeTask=null,readerWindow=null,readerLoadToken=0,readerLoading=false,readerBatchPending=false;
+    let toastTimer;
+    const book=()=>state.books.find(item=>item.id===state.activeBookId) || state.books[0];
+    const chapter=()=>book()?.chapters?.find(item=>item.id===state.selectedChapterId) || book()?.chapters?.at(-1);
+    function latestUserMessage(current){const history=current?.chatHistory||[];for(let i=history.length-1;i>=0;i--)if(history[i].role==='user')return history[i];return null}
+    function updateStorageError(){const error=$('storageError');error.textContent=storageDamaged?'本地项目文件无法读取。请先恢复自己的存档，当前资料不会被覆盖。':projectSaveFailed?'项目保存失败。请保持应用打开，并导出项目存档。':'AI 设置无法读取或保存。请重新保存 AI 设置。';error.hidden=!(storageDamaged||projectSaveFailed||settingsDamaged)}
+    function saveState(){if(storageDamaged){updateStorageError();return false}try{const json=JSON.stringify({...state,readerContinuous:false});const okay=nativeHost?AndroidBridge.saveProject(json):(localStorage.setItem('novel_mobile_ui_demo_v1',json),true);projectSaveFailed=!okay;updateStorageError();return okay}catch(e){projectSaveFailed=true;updateStorageError();return false}}
+    function commitEdit(apply,rollback){apply();if(saveState())return true;rollback();notify('保存失败，修改未生效');return false}
+    function saveApiSettings(cfg){try{const json=JSON.stringify(cfg);const okay=nativeHost?AndroidBridge.saveApiSettings(json):(localStorage.setItem('novel_mobile_api_settings_v1',json),true);settingsDamaged=!okay;updateStorageError();return okay}catch(e){settingsDamaged=true;updateStorageError();return false}}
+    let saveTimer;
+    function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveState,300)}
+    document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(saveTimer);saveState()}});
+    updateStorageError();
+    function busy(){return !!activeTask}
+    function guardBusy(){if(!busy())return false;notify('AI 正在处理，请等待或点击停止');return true}
+    function notify(message){const el=$('toast');el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,2600)}
+    function renderRail(){
+      const current=book();if(!current){$('topBookName').textContent='';$('topBookName').title='';$('booksList').innerHTML='<div class="empty-rail">暂无作品</div>';$('chaptersList').innerHTML='<div class="empty-rail">暂无章节</div>';return}
+      $('topBookName').textContent=current.name;
+      $('topBookName').title=current.name;
+      $('booksList').innerHTML=state.books.map(item=>{const chars=Array.from(item.name);const name=state.railCompact&&chars.length>3?chars.slice(0,3).join('')+'...':item.name;return `<div class="book-row ${item.id===current.id?'active':''}" data-book="${esc(item.id)}"><span class="book-spine"></span><button class="book-meta" data-select-book="${esc(item.id)}" aria-label="${esc(item.name)}" title="${esc(item.name)}" style="border:0;background:none;padding:0;text-align:left;color:inherit"><span class="book-title">${esc(name)}</span><span class="book-count">${item.chapters?.length||0} 章</span></button></div>`}).join('');
+      const chapters=Array.isArray(current.chapters)?current.chapters:[];
+      const chapterList=$('chaptersList'),previousScroll=chapterList.scrollTop;
+      chapterList.innerHTML=chapters.length?chapters.map((item,index)=>{const title=shortChapterTitle(item.title);const chars=Array.from(title);const shortTitle=chars.length>5?chars.slice(0,5).join('')+'...':title;return `<button class="chapter-row ${item.id===chapter()?.id?'active':''}" data-chapter="${esc(item.id)}" title="第 ${index+1} 章 ${esc(title)}" aria-label="第 ${index+1} 章 ${esc(title)}"><span class="chapter-no">${state.railCompact?`第${index+1}章`:`第 ${index+1} 章`}</span><span class="chapter-title">${esc(shortTitle)}</span></button>`}).join(''):'<div class="empty-rail">暂无章节</div>';
+      chapterList.scrollTop=previousScroll;
+      requestAnimationFrame(()=>{const list=$('chaptersList'),selected=list.querySelector('.chapter-row.active');if(!selected||!list.clientHeight)return;const viewport=list.getBoundingClientRect(),item=selected.getBoundingClientRect();if(item.top<viewport.top)list.scrollTop-=viewport.top-item.top;else if(item.bottom>viewport.bottom)list.scrollTop+=item.bottom-viewport.bottom});
+      $('booksList').querySelectorAll('[data-select-book]').forEach(el=>el.onclick=()=>{if(guardBusy())return;state.activeBookId=el.dataset.selectBook;state.selectedChapterId=book()?.chapters?.at(-1)?.id||null;saveState();render()});
+      $('chaptersList').querySelectorAll('[data-chapter]').forEach(el=>el.onclick=()=>{if(guardBusy())return;state.selectedChapterId=el.dataset.chapter;state.activeTab='reader';saveState();render()});
+    }
+    function renderMessages(){const current=book();const entries=Array.isArray(current.chatHistory)?current.chatHistory:[];const pending=activeTask?.bookId===current.id?`<div class="message assistant pending" role="status"><i class="fa-solid fa-spinner fa-spin"></i>${esc(activeTask.label)}</div>`:'';return `<div class="panel-header"><div class="eyebrow">当前作品</div><h1>${esc(current.name)}</h1><div class="subtle">${current.chapters?.length||0} 章 · 最新：${esc(current.chapters?.at(-1)?.title||'尚未生成')}</div></div><div class="messages" id="messageList">${entries.map(item=>`<div class="message ${item.role==='user'?'user':'assistant'} ${item.error?'error':''}">${esc(item.content)}${item.costLabel?`<span class="msg-meta">${esc(item.costLabel)}</span>`:''}${item.retry?`<button class="btn retry-btn" data-retry="${esc(item.retry)}"><i class="fa-solid fa-rotate-right"></i> 重试</button>`:''}</div>`).join('')}${pending}</div>`}
+    function readableBody(chosen){const tokens=readerMarkdown.parse(String(chosen.content||''),{});if(tokens[0]?.type==='heading_open'&&tokens[1]?.type==='inline'&&tokens[2]?.type==='heading_close'&&shortChapterTitle(tokens[1].content.trim())===shortChapterTitle(chosen.title).trim())tokens.splice(0,3);return readerMarkdown.renderer.render(tokens,readerMarkdown.options,{})}
+    function readerArticle(chosen,num,continuous){return `<article class="reader" data-reader-chapter="${esc(chosen.id)}"><h1>${continuous?`第 ${num} 章 · `:''}${esc(continuous?shortChapterTitle(chosen.title):chosen.title||'未命名')}</h1><div class="reader-meta">${String(chosen.content||'').replace(/\s/g,'').length} 字 · 只读</div><div class="summary"><strong>本章摘要</strong>${esc(chosen.summary||'暂无摘要')}</div><div class="prose">${readableBody(chosen)}</div></article>`}
+    function renderReader(){const current=book(),chosen=chapter();if(!chosen)return '<div class="panel-header"><div class="eyebrow">正文</div><h1>暂无章节</h1></div>';const num=current.chapters.indexOf(chosen)+1;const continuous=!!state.readerContinuous;if(continuous&&(!readerWindow||readerWindow.bookId!==current.id||num-1<readerWindow.start||num-1>=readerWindow.end)){readerWindow={bookId:current.id,start:Math.max(0,num-4),end:Math.min(current.chapters.length,num+3)}}const start=continuous?readerWindow.start:num-1;const items=continuous?current.chapters.slice(start,readerWindow.end):[chosen];return `<div class="reader-toolbar"><div class="reader-position eyebrow" id="readerPosition">第 ${num} 章</div><button class="icon-btn" id="readerModeButton" aria-label="${continuous?'退出连续全屏阅读':'连续全屏阅读'}" title="${continuous?'退出连续全屏阅读':'连续全屏阅读'}" aria-pressed="${continuous}"><i class="fa-solid fa-${continuous?'compress':'expand'}"></i></button></div><div class="${continuous?'reader-stream':''}">${items.map((item,i)=>readerArticle(item,start+i+1,continuous)).join('')}</div>`}
+    function renderWorld(){const current=book();return `<form class="form-view" id="worldForm"><h1>世界设定</h1><p class="form-intro">${esc(current.name)}</p><div class="form-group"><label class="form-label" for="worldview">世界观与专有名词</label><textarea class="field" id="worldview">${esc(current.worldview||'')}</textarea></div><div class="form-group"><label class="form-label" for="plotSet">主线大纲</label><textarea class="field" id="plotSet">${esc(current.plotSet||'')}</textarea></div><div class="form-footer"><span class="save-status">输入后自动保存</span><button class="btn primary" type="submit"><i class="fa-solid fa-check"></i> 保存设定</button></div></form>`}
+    function renderPrompt(){const current=book();return `<form class="form-view" id="promptForm"><h1>写作提示</h1><p class="form-intro">${esc(current.name)}</p><div class="form-group"><label class="form-label" for="globalPrompt">全局提示词</label><textarea class="field" id="globalPrompt">${esc(current.globalPrompt||'')}</textarea></div><div class="form-group"><label class="form-label" for="writingStyle">行文规范</label><textarea class="field" id="writingStyle">${esc(current.writingStyle||'')}</textarea></div><div class="form-footer"><span class="save-status">输入后自动保存</span><button class="btn primary" type="submit"><i class="fa-solid fa-check"></i> 保存提示</button></div></form>`}
+    function scrollReaderToSelected(){const panel=$('panel'),target=[...panel.querySelectorAll('[data-reader-chapter]')].find(el=>el.dataset.readerChapter===state.selectedChapterId);if(!target)return;const toolbar=panel.querySelector('.reader-toolbar');panel.scrollTop+=target.getBoundingClientRect().top-panel.getBoundingClientRect().top-(toolbar?.offsetHeight||0)}
+    function readerAnchor(){const panel=$('panel');return panel.getBoundingClientRect().top+(panel.querySelector('.reader-toolbar')?.offsetHeight||0)+20}
+    function visibleReaderChapterId(){const sections=[...$('panel').querySelectorAll('[data-reader-chapter]')];if(!sections.length)return null;const anchor=readerAnchor();let target=sections[0];for(const section of sections){if(section.getBoundingClientRect().top>anchor)break;target=section}return target.dataset.readerChapter}
+    function updateReaderScrollbar(){const track=$('readerScrollbar');if(track.hidden)return;const panel=$('panel'),thumb=$('readerScrollbarThumb');const height=track.clientHeight;const thumbHeight=Math.max(24,Math.min(height,height*panel.clientHeight/panel.scrollHeight));const maxScroll=panel.scrollHeight-panel.clientHeight;thumb.style.height=`${thumbHeight}px`;thumb.style.transform=`translateY(${maxScroll>0?panel.scrollTop/maxScroll*(height-thumbHeight):0}px)`}
+    function syncContinuousChapter(){const panel=$('panel'),sections=[...panel.querySelectorAll('[data-reader-chapter]')];if(!sections.length)return;const line=panel.getBoundingClientRect().top+($('readerPosition')?.parentElement.offsetHeight||0)+20;let active=sections[0];for(const section of sections){if(section.getBoundingClientRect().top>line)break;active=section}const id=active.dataset.readerChapter;if(id!==state.selectedChapterId){state.selectedChapterId=id;scheduleSave();$('chaptersList').querySelectorAll('[data-chapter]').forEach(el=>el.classList.toggle('active',el.dataset.chapter===id))}$('readerPosition').textContent=`第 ${book().chapters.findIndex(item=>item.id===id)+1} 章`}
+    function loadReaderEdge(){if(readerBatchPending||readerLoading||!readerWindow)return;const panel=$('panel'),current=book(),stream=panel.querySelector('.reader-stream');if(!stream||current.id!==readerWindow.bookId)return;const before=panel.scrollTop<Math.max(300,panel.clientHeight)&&readerWindow.start>0;const after=!before&&panel.scrollHeight-panel.scrollTop-panel.clientHeight<Math.max(300,panel.clientHeight)&&readerWindow.end<current.chapters.length;if(!before&&!after)return;readerBatchPending=true;requestAnimationFrame(()=>{if(!state.readerContinuous||!stream.isConnected){readerBatchPending=false;return}const oldHeight=panel.scrollHeight;if(before){const start=Math.max(0,readerWindow.start-3);stream.insertAdjacentHTML('afterbegin',current.chapters.slice(start,readerWindow.start).map((item,i)=>readerArticle(item,start+i+1,true)).join(''));readerWindow.start=start;panel.scrollTop+=panel.scrollHeight-oldHeight}else{const end=Math.min(current.chapters.length,readerWindow.end+3);stream.insertAdjacentHTML('beforeend',current.chapters.slice(readerWindow.end,end).map((item,i)=>readerArticle(item,readerWindow.end+i+1,true)).join(''));readerWindow.end=end}readerBatchPending=false;updateReaderScrollbar()})}
+    function prepareReader(){const token=++readerLoadToken;readerLoading=true;$('readerLoading').hidden=false;render();requestAnimationFrame(()=>requestAnimationFrame(()=>{if(token!==readerLoadToken)return;scrollReaderToSelected();updateReaderScrollbar();requestAnimationFrame(()=>{if(token!==readerLoadToken)return;readerLoading=false;$('readerLoading').hidden=true;loadReaderEdge()})}))}
+    function exitReaderMode(){++readerLoadToken;readerLoading=false;$('readerLoading').hidden=true;readerWindow=null;state.readerContinuous=false}
+    function toggleReaderMode(){if(state.readerContinuous){state.selectedChapterId=visibleReaderChapterId()||state.selectedChapterId;exitReaderMode();saveState();render()}else{state.readerContinuous=true;saveState();prepareReader()}}
+    function render(){
+      renderRail();
+      $('app').classList.toggle('rail-compact',!!state.railCompact);
+      $('app').classList.toggle('reader-focus',!!book()&&state.activeTab==='reader'&&!!state.readerContinuous);
+      $('railToggleButton').setAttribute('aria-pressed',String(!!state.railCompact));
+      $('railToggleButton').setAttribute('aria-label',state.railCompact?'展开书架和章节':'压缩书架和章节');
+      $('railToggleButton').title=state.railCompact?'展开书架和章节':'压缩书架和章节';
+      $('railToggleButton').querySelector('i').className=`fa-solid fa-angles-${state.railCompact?'right':'left'}`;
+      document.querySelectorAll('.tab').forEach(tab=>tab.classList.toggle('active',tab.dataset.tab===state.activeTab));
+      $('composer').hidden=!book()||state.activeTab!=='messages';
+      $('instruction').value=activeTask?.phase==='summary'&&activeTask.instruction?activeTask.instruction:book()?.draft||'';
+      $('instruction').disabled=busy();
+      $('composer').classList.toggle('is-busy',busy());
+      $('composer').setAttribute('aria-busy',String(busy()));
+      $('newChapterButton').disabled=busy();
+      $('continueButton').disabled=busy();
+      $('refillButton').disabled=busy()||!latestUserMessage(book());
+      $('clearButton').disabled=busy()||!$('instruction').value;
+      $('stopButton').disabled=!busy();
+      if(!book()){$('panel').classList.remove('reader-continuous');$('panel').innerHTML='<div class="panel-header"><h1>暂无作品</h1></div><div class="form-view"><button class="btn primary" id="createFirstBook"><i class="fa-solid fa-plus"></i> 创建作品</button></div>';$('readerScrollbar').hidden=true;$('panel').onscroll=null;$('createFirstBook').onclick=newBookSheet;return}
+      $('panel').classList.toggle('reader-continuous',state.activeTab==='reader'&&!!state.readerContinuous);
+      $('panel').innerHTML={messages:renderMessages,reader:renderReader,world:renderWorld,prompt:renderPrompt}[state.activeTab]();
+      if(state.activeTab==='reader'&&!state.readerContinuous)$('panel').scrollTop=0;
+      const msg=$('messageList');if(msg)$('panel').scrollTop=$('panel').scrollHeight;
+      if(msg)msg.querySelectorAll('[data-retry]').forEach(el=>el.onclick=()=>{if(guardBusy())return;if(el.dataset.retry.startsWith('summary:'))retrySummary(el.dataset.retry.slice(8));else if(el.dataset.retry==='summary')notify('旧整理任务未关联章节，请检查正文');else if(el.dataset.retry==='directions')openDirections();else generateChapter()});
+      const readerMode=$('readerModeButton');if(readerMode)readerMode.onclick=toggleReaderMode;
+      $('readerScrollbar').hidden=!(readerMode&&state.readerContinuous);
+      $('panel').onscroll=readerMode&&state.readerContinuous?()=>{syncContinuousChapter();updateReaderScrollbar();loadReaderEdge()}:null;
+      const wf=$('worldForm');if(wf){const save=()=>{const current=book();current.worldview=$('worldview').value;current.plotSet=$('plotSet').value;scheduleSave()};wf.oninput=save;wf.onsubmit=e=>{e.preventDefault();save();clearTimeout(saveTimer);if(saveState())notify('设定已保存')}}
+      const pf=$('promptForm');if(pf){const save=()=>{const current=book();current.globalPrompt=$('globalPrompt').value;current.writingStyle=$('writingStyle').value;scheduleSave()};pf.oninput=save;pf.onsubmit=e=>{e.preventDefault();save();clearTimeout(saveTimer);if(saveState())notify('提示已保存')}}
+    }
+    function setTab(tab){if(guardBusy()||tab===state.activeTab)return;if(state.activeTab==='reader'){if(state.readerContinuous)state.selectedChapterId=visibleReaderChapterId()||state.selectedChapterId;exitReaderMode()}state.activeTab=tab;saveState();render()}
+    function closeDrawer(){$('drawerBackdrop').hidden=true}
+    let sheetLeaveGuard=null,discardNext=null;
+    function openSheet(title,html){sheetLeaveGuard=null;discardNext=null;$('discardBackdrop').hidden=true;$('sheetTitle').textContent=title;$('sheetBody').innerHTML=html;$('sheetBackdrop').hidden=false;$('sheetBackdrop').querySelector('.sheet').scrollTop=0}
+    function closeSheet(){sheetLeaveGuard=null;discardNext=null;$('discardBackdrop').hidden=true;$('sheetBackdrop').hidden=true;$('sheetBody').innerHTML=''}
+    function watchSheetForm(id){const form=$(id);const values=()=>JSON.stringify([...form.querySelectorAll('input,textarea,select')].map(field=>[field.id,field.value,field.type==='checkbox'?field.checked:null]));let original=values();sheetLeaveGuard=()=>form.isConnected&&values()!==original;return ()=>{original=values()}}
+    function leaveSheet(next=closeSheet){if(sheetLeaveGuard?.()){discardNext=next;$('discardBackdrop').hidden=false;$('keepEditing').focus()}else next()}
+    $('keepEditing').onclick=()=>{$('discardBackdrop').hidden=true;discardNext=null};
+    $('discardChanges').onclick=()=>{const next=discardNext;discardNext=null;$('discardBackdrop').hidden=true;sheetLeaveGuard=null;next?.()};
+    function refillSheet(){
+      if(guardBusy())return;const current=book(),last=latestUserMessage(current);if(!last)return;
+      openSheet('确认回填',`<p class="mini-note">将用最近发送的消息覆盖当前编辑框内容？</p><p class="mini-note">${esc(last.content.slice(0,120))}${last.content.length>120?'…':''}</p><div class="sheet-actions"><button class="btn" id="cancelRefill">取消</button><button class="btn primary" id="confirmRefill">回填</button></div>`);
+      $('cancelRefill').onclick=closeSheet;
+      $('confirmRefill').onclick=()=>{const previous=current.draft,previousMode=current.draftContinuation;const related=[...(current.chapters||[])].reverse().find(ch=>ch.prompt===last.content);if(!commitEdit(()=>{current.draft=last.content;current.draftContinuation=typeof last.continuation==='boolean'?last.continuation:!!related?.isContinuation},()=>{current.draft=previous;current.draftContinuation=previousMode}))return;closeSheet();render();$('instruction').focus()};
+    }
+    function clearDraftSheet(){
+      if(guardBusy())return;const current=book();if(!current?.draft)return;
+      openSheet('确认清空','<p class="mini-note">清空当前编辑框中的内容？已发送的消息不会删除。</p><div class="sheet-actions"><button class="btn" id="cancelClear">取消</button><button class="btn warn" id="confirmClear">清空</button></div>');
+      $('cancelClear').onclick=closeSheet;
+      $('confirmClear').onclick=()=>{const previous=current.draft,previousMode=current.draftContinuation;if(!commitEdit(()=>{current.draft='';current.draftContinuation=false},()=>{current.draft=previous;current.draftContinuation=previousMode}))return;closeSheet();render()};
+    }
+    function versionSheet(){let version=`${NOVEL_APP_VERSION}（演示版）`;if(nativeHost)try{version=AndroidBridge.appVersion()}catch(e){version='未知'}openSheet('当前版本',`<p class="mini-note">小说生成器 ${esc(version)}</p>`)}
+    function helpSheet(){openSheet('使用说明','<div class="help-copy"><p><strong>1. 开始：</strong>新建或从存档恢复作品，在 AI 设置填写 API Key 并测试连接。</p><p><strong>2. 准备：</strong>全局设定库记录动作，全局角色库可逐个导入书籍；在设定和提示页填写写作要求。</p><p><strong>3. 创作：</strong>在消息页输入本章要求并发送。正文、摘要和角色成长会依次生成，费用估算显示在消息中。</p><p><strong>4. 阅读：</strong>续写可先选择剧情走向；正文页可连续全屏阅读，并在侧边栏调整字号。</p><p><strong>5. 保存：</strong>右上角可导出或分享项目存档，供 PC 继续编辑，也可导出本书 TXT 正文。</p></div>')}
+    function startSheet(){openSheet('开始使用','<div class="sheet-list"><button class="btn wide" id="startRestore"><i class="fa-solid fa-rotate-left"></i> 从存档恢复</button><input id="startRestoreFile" type="file" accept=".json,application/json" hidden><button class="btn primary wide" id="startCreate"><i class="fa-solid fa-plus"></i> 新建书籍</button></div>');$('startCreate').onclick=newBookSheet;$('startRestore').onclick=()=>{if(nativeHost)AndroidBridge.chooseProject();else $('startRestoreFile').click()};$('startRestoreFile').onchange=async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{restoreProject(JSON.parse(await file.text()))}catch(err){notify(err.message||'无法读取此存档')}}}
+    function newBookSheet(){openSheet(book()?'添加作品':'创建第一本书',`<form class="sheet-form" id="newBookForm"><div class="form-group"><label class="form-label" for="newBookName">作品名称</label><input class="field" id="newBookName" maxlength="40" required placeholder="输入书名"></div><div class="sheet-actions"><button class="btn primary wide" type="submit">创建作品</button></div></form>`);watchSheetForm('newBookForm');$('newBookForm').onsubmit=e=>{e.preventDefault();const name=$('newBookName').value.trim();if(!name)return;const id=uid(),previousBook=state.activeBookId,previousChapter=state.selectedChapterId,previousTab=state.activeTab;const added={id,name,currentChapterId:null,worldview:'',plotSet:'',globalPrompt:defaultAuthorPrompt,writingStyle:'',characters:[],chapters:[],chatHistory:[]};if(!commitEdit(()=>{state.books.push(added);state.activeBookId=id;state.selectedChapterId=null;state.activeTab='prompt'},()=>{state.books=state.books.filter(item=>item.id!==id);state.activeBookId=previousBook;state.selectedChapterId=previousChapter;state.activeTab=previousTab}))return;closeSheet();render();notify('作品已创建')}}
+    function booksSheet(){openSheet('书架管理',`<div class="sheet-list"><button class="btn wide" id="manageAddBook"><i class="fa-solid fa-plus"></i> 新建作品</button><button class="btn wide warn" id="manageDeleteBook" ${state.books.length?'':'disabled'}><i class="fa-solid fa-trash"></i> 删除作品</button></div><div class="sheet-list" style="margin-top:18px">${state.books.map(item=>`<div class="sheet-row"><strong>${esc(item.name)}</strong><small>${item.chapters?.length||0} 章</small></div>`).join('')||'<p class="mini-note">暂无作品</p>'}</div>`);$('manageAddBook').onclick=newBookSheet;$('manageDeleteBook').onclick=deleteBookSheet}
+    function deleteBookSheet(){openSheet('删除哪本书？',`<div class="sheet-list">${state.books.map(item=>`<button class="btn wide warn" data-delete-book="${esc(item.id)}" ${state.books.length===1?'disabled':''}><i class="fa-solid fa-trash"></i> ${esc(item.name)}</button>`).join('')}</div>${state.books.length===1?'<p class="mini-note" style="margin-top:12px">至少保留一本作品。</p>':''}`);$('sheetBody').querySelectorAll('[data-delete-book]').forEach(el=>el.onclick=()=>confirmDeleteBook(el.dataset.deleteBook))}
+    function confirmDeleteBook(id){const target=state.books.find(item=>item.id===id);if(!target||state.books.length===1)return;openSheet('确认删除',`<p class="mini-note">删除《${esc(target.name)}》及其全部章节？此操作无法撤销。</p><div class="sheet-actions"><button class="btn" id="cancelDeleteBook">取消</button><button class="btn warn" id="confirmDeleteBook">删除作品</button></div>`);$('cancelDeleteBook').onclick=deleteBookSheet;$('confirmDeleteBook').onclick=()=>{const previousBooks=state.books,previousBook=state.activeBookId,previousChapter=state.selectedChapterId;if(!commitEdit(()=>{state.books=state.books.filter(item=>item.id!==id);if(state.activeBookId===id){state.activeBookId=state.books[0].id;state.selectedChapterId=book().chapters?.at(-1)?.id||null}},()=>{state.books=previousBooks;state.activeBookId=previousBook;state.selectedChapterId=previousChapter}))return;closeSheet();render();notify('作品已删除')}}
+    function currentConfig(){return {...state.apiConfig,key:apiKey}}
+    function checkConfig(cfg){if(!cfg.key){notify('请先在 AI 设置中填写 API Key');apiSheet();return false}if(!cfg.url||!cfg.model){notify('请填写 API 地址和模型');apiSheet();return false}return true}
+    function apiError(err){if(err.name==='AbortError')return '请求已停止';if(err.message==='timeout'||/timed out/i.test(err.message||''))return '请求超时，请重试';if(err.message==='Failed to fetch'||err instanceof TypeError)return '网络请求失败，请检查地址和网络';return err.message||'请求失败'}
+    const nativePending=new Map();
+    window.nativeRequestComplete=(id,response)=>{const pending=nativePending.get(id);if(!pending)return;nativePending.delete(id);try{pending.resolve(JSON.parse(response))}catch(error){pending.reject(error)}};
+    function nativeTransport(cfg,body,controller,timeoutMs,requestId=null,replay=false){
+      return new Promise((resolve,reject)=>{
+        const id=requestId||uid();
+        const abort=()=>{nativePending.delete(id);AndroidBridge.cancel(id);reject(new DOMException('请求已停止','AbortError'))};
+        if(controller.signal.aborted){reject(new DOMException('请求已停止','AbortError'));return}
+        const cleanup=()=>controller.signal.removeEventListener('abort',abort);
+        nativePending.set(id,{resolve:value=>{cleanup();resolve(value)},reject:error=>{cleanup();reject(error)}});
+        controller.signal.addEventListener('abort',abort,{once:true});
+        try{if(replay)AndroidBridge.replayRequest(id);else AndroidBridge.request(id,cfg.url,cfg.key,JSON.stringify(body),timeoutMs,!!requestId)}catch(error){nativePending.delete(id);cleanup();reject(error)}
+      });
+    }
+    async function requestAI(cfg,messages,controller,maxTokens,bodyOverride=null,timeoutMs=60000,requireContent=true,requestId=null,replay=false,startedAt=null){
+      const timer=setTimeout(()=>controller.abort('timeout'),timeoutMs);
+      const requestedAt=startedAt||Date.now();
+      try{
+        const body=bodyOverride||{model:cfg.model,messages,temperature:Number(cfg.temperature),top_p:Number(cfg.topP),presence_penalty:Number(cfg.presence),frequency_penalty:Number(cfg.frequency),max_tokens:maxTokens};
+        if(!bodyOverride&&cfg.stopWords)body.stop=cfg.stopWords.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+        let status,data;
+        if(nativeHost){
+          const response=await nativeTransport(cfg,body,controller,timeoutMs,requestId,replay);
+          if(response.error)throw Error(response.error);
+          status=response.status;
+          try{data=JSON.parse(response.body)}catch(e){throw Error(`服务器返回了无法读取的内容（HTTP ${status}）`)}
+        }else{
+          const response=await fetch(cfg.url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${cfg.key}`},body:JSON.stringify(body),signal:controller.signal});
+          status=response.status;
+          try{data=await response.json()}catch(e){throw Error(`服务器返回了无法读取的内容（HTTP ${status}）`)}
+        }
+        if(status<200||status>=300){const hint={401:'API Key 无效或未获授权',402:'账户余额不足',429:'请求过于频繁'}[status];throw Error(hint||data.error?.message||`请求失败（HTTP ${status}）`)}
+        const raw=data.choices?.[0]?.message?.content;
+        const content=typeof raw==='string'?raw:Array.isArray(raw)?raw.map(part=>part.text||'').join(''):'';
+        if(requireContent&&!content.trim())throw Error('AI 返回了空内容');
+        return {content:content.trim(),finishReason:data.choices?.[0]?.finish_reason,usage:data.usage?{...data.usage,_pricedAt:requestedAt,_model:cfg.model,_url:cfg.url}:null};
+      }catch(err){if(controller.signal.aborted&&controller.signal.reason==='timeout')throw Error('timeout');throw err}finally{clearTimeout(timer)}
+    }
+    function parseAIJson(text){const clean=text.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();try{return JSON.parse(clean)}catch(e){const start=Math.min(...['{','['].map(c=>{const n=clean.indexOf(c);return n<0?Infinity:n}));const end=Math.max(clean.lastIndexOf('}'),clean.lastIndexOf(']'));if(!Number.isFinite(start)||end<start)throw Error('AI 返回格式不完整，请重试');return JSON.parse(clean.slice(start,end+1))}}
+    function pricePeriod(at){
+      const beijing=new Date(at+8*3600000),year=beijing.getUTCFullYear(),weekDay=beijing.getUTCDay(),hour=beijing.getUTCHours();
+      if(weekDay===0||weekDay===6||!((hour>=9&&hour<12)||(hour>=14&&hour<18)))return 'idle';
+      if(year!==2026)return null;
+      const day=`${year}-${String(beijing.getUTCMonth()+1).padStart(2,'0')}-${String(beijing.getUTCDate()).padStart(2,'0')}`;
+      const holidays=[['2026-01-01','2026-01-03'],['2026-02-15','2026-02-23'],['2026-04-04','2026-04-06'],['2026-05-01','2026-05-05'],['2026-06-19','2026-06-21'],['2026-09-25','2026-09-27'],['2026-10-01','2026-10-07']];
+      return holidays.some(([start,end])=>day>=start&&day<=end)?'idle':'peak';
+    }
+    function costFenUnits(usage){
+      if(!usage||typeof usage.completion_tokens!=='number')return null;
+      let endpoint;try{endpoint=new URL(usage._url)}catch(e){return null}
+      if(endpoint.origin!=='https://api.deepseek.com'||endpoint.pathname.replace(/\/$/,'')!=='/chat/completions'||usage._model!=='deepseek-flash')return null;
+      const hit=typeof usage.prompt_cache_hit_tokens==='number'?usage.prompt_cache_hit_tokens:typeof usage.prompt_tokens_details?.cached_tokens==='number'?usage.prompt_tokens_details.cached_tokens:0;
+      const miss=typeof usage.prompt_cache_miss_tokens==='number'?usage.prompt_cache_miss_tokens:typeof usage.prompt_tokens==='number'?usage.prompt_tokens-hit:NaN;
+      if(!Number.isFinite(hit)||!Number.isFinite(miss)||!Number.isFinite(usage.completion_tokens)||miss<0||hit<0||usage.completion_tokens<0)return null;
+      const period=pricePeriod(usage._pricedAt||Date.now());if(!period)return null;
+      const rates=period==='peak'?[4,200,800]:[2,100,400];
+      return hit*rates[0]+miss*rates[1]+usage.completion_tokens*rates[2];
+    }
+    function costLabel(usages){const units=usages.map(costFenUnits);if(units.some(value=>value===null))return '费用暂不可得';const fen=Math.round(units.reduce((a,b)=>a+b,0)/1e6);return `本次费用估算 ¥${(fen/100).toFixed(2)}`}
+    function createTask(current,label,phase){const task={id:uid(),bookId:current.id,controller:new AbortController(),label,phase};activeTask=task;render();return task}
+    function taskSnapshot(task){return {requestId:task.requestId||null,bookId:task.bookId,phase:task.phase,label:task.label,instruction:task.instruction||'',continuation:!!task.continuation,chapterId:task.chapterId||null,firstUsage:task.firstUsage||null,startedAt:task.startedAt||Date.now()}}
+    async function taskRequest(task,cfg,body,timeoutMs,replay=false){
+      if(nativeHost){
+        const shouldReplay=replay&&!!task.requestId;
+        if(!shouldReplay){const previous=state.pendingNativeTask;task.requestId=uid();task.startedAt=Date.now();state.pendingNativeTask=taskSnapshot(task);if(!saveState()){state.pendingNativeTask=previous;task.requestId=null;const error=Error('请求状态未保存，已取消发送');error.beforeRequest=true;throw error}}
+        return requestAI(cfg,body.messages,task.controller,body.max_tokens,body,timeoutMs,true,task.requestId,shouldReplay,task.startedAt);
+      }
+      return requestAI(cfg,body.messages,task.controller,body.max_tokens,body,timeoutMs);
+    }
+    function acknowledgeTask(task){if(nativeHost&&task.requestId){AndroidBridge.acknowledgeRequest(task.requestId);task.requestId=null}}
+    function taskValid(task){return activeTask?.id===task.id&&book()?.id===task.bookId}
+    function finishTask(task){if(!taskValid(task))return false;activeTask=null;state.pendingNativeTask=null;const saved=saveState();if(saved)acknowledgeTask(task);render();return saved}
+    function taskFailure(task,error,retry,detail){if(!taskValid(task))return;const current=book();current.chatHistory ||= [];current.chatHistory.push({role:'assistant',content:`${detail||'请求失败'}：${apiError(error)}`,error:true,retry,costLabel:retry.startsWith('summary:')?costLabel([task.firstUsage]):'',ts:Date.now()});finishTask(task)}
+    function stopTask(){const task=activeTask;if(!task)return;activeTask=null;state.pendingNativeTask=null;task.controller.abort();const current=state.books.find(b=>b.id===task.bookId);if(current){current.chatHistory ||= [];current.chatHistory.push({role:'assistant',content:task.phase==='summary'?'已停止资料整理，正文已保存。':'已停止请求，创作指令已保留。',error:true,retry:task.phase==='summary'?`summary:${task.chapterId}`:task.phase==='directions'?'directions':'chapter',costLabel:task.phase==='summary'?costLabel([task.firstUsage]):'',ts:Date.now()})}saveState();render()}
+    async function generateChapter(skipSummaryWarning=false){
+      if(guardBusy())return;const current=book();if(!current)return;const instruction=$('instruction').value.trim();if(!instruction){notify('请先输入创作指令');return}const cfg=currentConfig();if(!checkConfig(cfg))return;
+      const pending=current.chapters?.at(-1);if(!skipSummaryWarning&&pending?.pendingSummary&&!pending.summary){openSheet('上一章资料未完成',`<p class="mini-note">《${esc(pending.title)}》的摘要和角色成长尚未完成。继续发送时，AI 将读取该章正文的开头与结尾。</p><div class="sheet-actions"><button class="btn" id="completePendingSummary">补全摘要</button><button class="btn primary" id="sendWithoutSummary">继续发送</button></div>`);$('completePendingSummary').onclick=()=>{closeSheet();void retrySummary(pending.id)};$('sendWithoutSummary').onclick=()=>{closeSheet();void generateChapter(true)};return}
+      current.chatHistory ||= [];const previousHistory=current.chatHistory,previousInstruction=current.pendingInstruction,previousDraft=current.draft;current.chatHistory=current.chatHistory.filter(m=>m.retry!=='chapter');if(current.pendingInstruction!==instruction){current.chatHistory.push({role:'user',content:instruction,continuation:!!current.draftContinuation,ts:Date.now()});current.pendingInstruction=instruction}current.draft=instruction;
+      clearTimeout(saveTimer);if(!saveState()){current.chatHistory=previousHistory;current.pendingInstruction=previousInstruction;current.draft=previousDraft;notify('创作指令未保存，已取消发送');return}
+      const task=createTask(current,'正在生成正文…','chapter');task.instruction=instruction;task.continuation=!!current.draftContinuation;
+      await runChapterTask(task,current,cfg,false);
+    }
+    async function runChapterTask(task,current,cfg,replay){
+      const instruction=task.instruction,continuation=!!task.continuation;
+      try{
+        const body=NovelCore.chapterRequest(current,state.actions,instruction,cfg,continuation);
+        const result=await taskRequest(task,cfg,body,600000,replay);
+        if(!taskValid(task))return;
+        const content=result.content;
+        const title=NovelCore.titleFrom(content,continuation?'续写':instruction.split('\n')[0],(current.chapters||[]).length+1);
+        const truncated=NovelCore.isTruncated(result,body.max_tokens);
+        const chapter={id:uid(),title,content,prompt:instruction,isContinuation:continuation,isInterlude:false,truncated,summary:'',pendingSummary:true,pendingSummaryUsage:result.usage,savedAt:Date.now(),checkResult:[]};
+        current.chapters ||= [];current.chapters.push(chapter);current.currentChapterId=chapter.id;state.selectedChapterId=chapter.id;
+        current.pendingInstruction='';current.draft='';current.draftContinuation=false;
+        delete current.pendingDirections;
+        task.phase='summary';task.label=truncated?'正文可能被截断，正在整理摘要与角色成长…':'正文已保存，正在生成摘要与角色成长…';task.firstUsage=result.usage;task.chapterId=chapter.id;task.contentSnapshot=content;task.instruction=instruction;
+        const finishedRequestId=task.requestId;task.requestId=null;
+        if(nativeHost)state.pendingNativeTask=taskSnapshot(task);
+        if(!saveState()){const error=Error('本地保存失败，请保持应用打开并导出存档');error.storageFailure=true;throw error}
+        if(nativeHost&&finishedRequestId)AndroidBridge.acknowledgeRequest(finishedRequestId);
+        render();await completeSummary(task,current,chapter,cfg,false);
+      }catch(err){if(err.storageFailure&&taskValid(task)){current.chatHistory.push({role:'assistant',content:`正文已生成，但未保存：${apiError(err)}`,error:true,retry:`summary:${task.chapterId}`,costLabel:costLabel([task.firstUsage]),ts:Date.now()});activeTask=null;render()}else taskFailure(task,err,task.phase==='summary'?`summary:${task.chapterId}`:'chapter',task.phase==='summary'?'正文已保存，资料生成失败':'正文生成失败')}
+    }
+    async function completeSummary(task,current,chapter,cfg,replay=false){
+      const body=NovelCore.summaryRequest(current,chapter,cfg);
+      const result=await taskRequest(task,cfg,body,60000,replay);
+      if(!taskValid(task))return;
+      if(!current.chapters.some(item=>item.id===chapter.id)||chapter.content!==task.contentSnapshot)throw Error('章节已变化，旧整理结果已丢弃');
+      const data=NovelCore.parseSummaryGrowth(result.content,current,chapter);
+      chapter.summary=data.summary;NovelCore.applyGrowth(current,data.growth);
+      const index=current.chapters.indexOf(chapter)+1;
+      delete chapter.pendingSummary;delete chapter.pendingSummaryUsage;
+      const message={role:'assistant',content:`第 ${index} 章《${chapter.title}》已生成${chapter.truncated?'（正文可能未完）':''}，摘要与角色成长已更新。`,costLabel:costLabel([task.firstUsage,result.usage]),ts:Date.now()};
+      current.chatHistory.push(message);
+      if(finishTask(task))notify('新章节已加入作品');else{message.content='摘要与角色成长已生成，但保存失败。请保持应用打开并导出存档。';message.error=true;render()}
+    }
+    async function retrySummary(chapterId){if(guardBusy())return;const current=book(),chapter=current?.chapters?.find(c=>c.id===chapterId&&c.pendingSummary);if(!chapter){notify('没有待补全的章节');return}const cfg=currentConfig();if(!checkConfig(cfg))return;const retry=`summary:${chapter.id}`;current.chatHistory=current.chatHistory.filter(m=>m.retry!==retry);const task=createTask(current,'正在补全摘要与角色成长…','summary');task.firstUsage=chapter.pendingSummaryUsage;task.chapterId=chapter.id;task.contentSnapshot=chapter.content;task.instruction=chapter.prompt;render();try{await completeSummary(task,current,chapter,cfg)}catch(err){taskFailure(task,err,retry,'资料生成失败，正文已保存')}}
+    async function openDirections(){
+      if(guardBusy())return;const current=book();if(!current?.chapters?.length){notify('请先生成第一章');return}const cfg=currentConfig();if(!checkConfig(cfg))return;current.chatHistory ||= [];current.chatHistory=current.chatHistory.filter(m=>m.retry!=='directions');const task=createTask(current,'正在生成续写走向…','directions');await runDirectionsTask(task,current,cfg,false);
+    }
+    async function runDirectionsTask(task,current,cfg,replay){try{
+        const body=NovelCore.branchRequest(current,cfg);
+        const result=await taskRequest(task,cfg,body,60000,replay);
+        if(!taskValid(task))return;const choices=parseAIJson(result.content);if(!Array.isArray(choices)||choices.length!==3||choices.some(c=>!c.title||!c.outline))throw Error('续写走向格式不完整');current.pendingDirections=choices;current.chatHistory.push({role:'assistant',content:'已生成三条续写走向。',costLabel:costLabel([result.usage]),ts:Date.now()});if(finishTask(task))showDirectionChoices(current);
+      }catch(err){taskFailure(task,err,'directions','续写走向生成失败')}
+    }
+    function showDirectionChoices(current){const choices=current.pendingDirections;if(!Array.isArray(choices)||choices.length!==3)return;openSheet('选择续写走向',choices.map((item,i)=>`<button class="choice" data-direction="${i}"><strong>0${i+1} ${esc(item.title)}</strong><span>${esc(item.outline)}</span></button>`).join(''));$('sheetBody').querySelectorAll('[data-direction]').forEach(el=>el.onclick=()=>{const choice=choices[Number(el.dataset.direction)],previous=current.draft,previousMode=current.draftContinuation;if(!commitEdit(()=>{current.draft=[current.draft?.trim(),`续写方向：${choice.title}\n${choice.outline}`].filter(Boolean).join('\n\n');current.draftContinuation=true;delete current.pendingDirections},()=>{current.draft=previous;current.draftContinuation=previousMode;current.pendingDirections=choices}))return;closeSheet();render();$('instruction').focus();$('instruction').setSelectionRange(current.draft.length,current.draft.length)})}
+    async function resumeNativeTask(){
+      const pending=state.pendingNativeTask,current=state.books.find(item=>item.id===pending?.bookId);
+      if(!current||!['chapter','summary','directions'].includes(pending.phase)){state.pendingNativeTask=null;saveState();render();return}
+      state.activeBookId=current.id;
+      const task={id:uid(),bookId:current.id,controller:new AbortController(),requestId:pending.requestId,startedAt:pending.startedAt,label:pending.label,phase:pending.phase,instruction:pending.instruction,continuation:pending.continuation,chapterId:pending.chapterId,firstUsage:pending.firstUsage};
+      activeTask=task;render();const cfg=currentConfig();
+      if(task.phase==='chapter'){await runChapterTask(task,current,cfg,true);return}
+      if(task.phase==='directions'){await runDirectionsTask(task,current,cfg,true);return}
+      const chapter=current.chapters?.find(item=>item.id===task.chapterId&&item.pendingSummary);
+      if(!chapter){taskFailure(task,Error('待整理章节不存在'),'chapter','后台任务无法恢复');return}
+      task.contentSnapshot=chapter.content;
+      try{await completeSummary(task,current,chapter,cfg,true)}catch(err){taskFailure(task,err,`summary:${chapter.id}`,'资料生成失败，正文已保存')}
+    }
+    const roleNameKey=name=>name.trim().normalize('NFC');
+    function globalRoleSheet(){
+      const roles=state.globalCharacters;
+      openSheet('全局角色库',`<div class="sheet-list">${roles.map(c=>`<div class="sheet-row library-row"><div class="row-info"><strong>${esc(c.name)}</strong><small>${esc(c.personality||c.relationship||'')}</small></div><button class="icon-btn" data-edit-global-role="${esc(c.id)}" aria-label="编辑全局角色 ${esc(c.name)}" title="编辑角色"><i class="fa-solid fa-pen"></i></button><button class="icon-btn" data-import-global-role="${esc(c.id)}" aria-label="导入角色 ${esc(c.name)}" title="导入到书籍"><i class="fa-solid fa-file-import"></i></button><button class="icon-btn" data-delete-global-role="${esc(c.id)}" aria-label="删除全局角色 ${esc(c.name)}" title="删除角色"><i class="fa-solid fa-trash"></i></button></div>`).join('')||'<p class="mini-note">暂无全局角色</p>'}</div><button class="btn primary wide" id="addGlobalRole" style="margin-top:18px"><i class="fa-solid fa-plus"></i> 新增角色</button>`);
+      $('addGlobalRole').onclick=()=>globalRoleFormSheet(null);
+      $('sheetBody').querySelectorAll('[data-edit-global-role]').forEach(el=>el.onclick=()=>globalRoleFormSheet(roles.find(c=>c.id===el.dataset.editGlobalRole)));
+      $('sheetBody').querySelectorAll('[data-import-global-role]').forEach(el=>el.onclick=()=>importGlobalRoleSheet(roles.find(c=>c.id===el.dataset.importGlobalRole)));
+      $('sheetBody').querySelectorAll('[data-delete-global-role]').forEach(el=>el.onclick=()=>{const target=roles.find(c=>c.id===el.dataset.deleteGlobalRole);if(!target)return;openSheet('确认删除全局角色',`<p class="mini-note">删除“${esc(target.name)}”？已导入各书的角色不会受到影响。</p><div class="sheet-actions"><button class="btn" id="cancelDeleteGlobalRole">取消</button><button class="btn danger" id="confirmDeleteGlobalRole">删除角色</button></div>`);$('cancelDeleteGlobalRole').onclick=globalRoleSheet;$('confirmDeleteGlobalRole').onclick=()=>{const previous=state.globalCharacters;if(!commitEdit(()=>{state.globalCharacters=previous.filter(c=>c.id!==target.id)},()=>{state.globalCharacters=previous}))return;globalRoleSheet();notify('全局角色已删除')}});
+    }
+    function globalRoleFormSheet(target){
+      openSheet(target?'编辑全局角色':'新增全局角色',`<form class="sheet-form" id="globalRoleForm"><div class="form-group"><label class="form-label" for="globalRoleName">姓名</label><input class="field" id="globalRoleName" required maxlength="80" value="${esc(target?.name||'')}"></div><div class="form-group"><label class="form-label" for="globalRoleAppearance">外貌体征</label><textarea class="field" id="globalRoleAppearance">${esc(target?.appearance||'')}</textarea></div><div class="form-group"><label class="form-label" for="globalRolePersonality">性格</label><textarea class="field" id="globalRolePersonality">${esc(target?.personality||'')}</textarea></div><div class="form-group"><label class="form-label" for="globalRoleSpecial">服装及其他设定</label><textarea class="field" id="globalRoleSpecial">${esc(target?.special||'')}</textarea></div><div class="form-group"><label class="form-label" for="globalRoleRelationship">身份关联</label><textarea class="field" id="globalRoleRelationship">${esc(target?.relationship||'')}</textarea></div><div class="sheet-actions"><button class="btn" type="button" id="cancelGlobalRole">取消</button><button class="btn primary" type="submit">保存角色</button></div></form>`);
+      watchSheetForm('globalRoleForm');$('cancelGlobalRole').onclick=()=>leaveSheet(globalRoleSheet);
+      $('globalRoleForm').onsubmit=e=>{e.preventDefault();const name=$('globalRoleName').value.trim();if(!name)return;if(state.globalCharacters.some(c=>c.id!==target?.id&&roleNameKey(c.name)===roleNameKey(name))){notify('全局角色库中已有同名角色');return}const fields={name,appearance:$('globalRoleAppearance').value.trim(),personality:$('globalRolePersonality').value.trim(),special:$('globalRoleSpecial').value.trim(),relationship:$('globalRoleRelationship').value.trim()};const previous=target?Object.fromEntries(Object.keys(fields).map(key=>[key,target[key]])):null,added=target?null:{id:uid(),...fields,tags:[],relationships:[]};if(!commitEdit(()=>{if(target)Object.assign(target,fields);else state.globalCharacters.push(added)},()=>{if(target)Object.assign(target,previous);else state.globalCharacters=state.globalCharacters.filter(c=>c.id!==added.id)}))return;globalRoleSheet();notify('全局角色已保存')};
+    }
+    function importGlobalRoleSheet(source){
+      if(!source)return;if(!state.books.length){notify('请先创建书籍');return}
+      openSheet('导入角色',`<p class="mini-note">将“${esc(source.name)}”复制到哪本书？</p><form class="sheet-form" id="importGlobalRoleForm"><div class="form-group"><label class="form-label" for="importTargetBook">目标书籍</label><select class="field" id="importTargetBook">${state.books.map(item=>`<option value="${esc(item.id)}" ${item.id===book()?.id?'selected':''}>${esc(item.name)}</option>`).join('')}</select></div><p class="mini-note" id="importRoleError" role="alert" hidden></p><div class="sheet-actions"><button class="btn" type="button" id="cancelImportGlobalRole">取消</button><button class="btn primary" type="submit">确认导入</button></div></form>`);
+      $('cancelImportGlobalRole').onclick=globalRoleSheet;
+      $('importGlobalRoleForm').onsubmit=e=>{e.preventDefault();const target=state.books.find(item=>item.id===$('importTargetBook').value);if(!target){$('importRoleError').textContent='目标书籍不存在';$('importRoleError').hidden=false;return}if(target.characters.some(c=>roleNameKey(c.name)===roleNameKey(source.name))){$('importRoleError').textContent='本书已有同名角色，请先检查或改名';$('importRoleError').hidden=false;return}const copy={id:uid(),name:source.name,appearance:source.appearance||'',personality:source.personality||'',special:source.special||'',relationship:source.relationship||'',growth:[]};if(!commitEdit(()=>target.characters.push(copy),()=>{target.characters=target.characters.filter(c=>c.id!==copy.id)}))return;globalRoleSheet();notify(`已导入《${target.name}》的本书角色库`)};
+    }
+    function roleSheet(){
+      const current=book(),roles=Array.isArray(current.characters)?current.characters:[];
+      openSheet('本书角色库',`<div class="sheet-list">${roles.map(c=>`<div class="sheet-row library-row"><div class="row-info"><strong>${esc(c.name)}</strong><small>${esc(c.personality||c.relationship||'')}</small></div><button class="icon-btn" data-edit-role="${esc(c.id)}" aria-label="编辑角色 ${esc(c.name)}" title="编辑角色 ${esc(c.name)}"><i class="fa-solid fa-pen"></i></button><button class="icon-btn" data-delete-role="${esc(c.id)}" aria-label="删除角色 ${esc(c.name)}" title="删除角色 ${esc(c.name)}"><i class="fa-solid fa-trash"></i></button></div>`).join('')||'<p class="mini-note">暂无角色</p>'}</div><button class="btn primary wide" id="addRole" style="margin-top:18px"><i class="fa-solid fa-plus"></i> 新增角色</button>`);
+      $('addRole').onclick=()=>roleFormSheet(current,null);
+      $('sheetBody').querySelectorAll('[data-edit-role]').forEach(el=>el.onclick=()=>roleFormSheet(current,roles.find(c=>c.id===el.dataset.editRole)));
+      $('sheetBody').querySelectorAll('[data-delete-role]').forEach(el=>el.onclick=()=>{const target=roles.find(c=>c.id===el.dataset.deleteRole);if(!target)return;openSheet('确认删除角色',`<p class="mini-note">删除“${esc(target.name)}”及其成长记录？此操作无法撤销。</p><div class="sheet-actions"><button class="btn" id="cancelDeleteRole">取消</button><button class="btn danger" id="confirmDeleteRole">删除角色</button></div>`);$('cancelDeleteRole').onclick=roleSheet;$('confirmDeleteRole').onclick=()=>{const previousCharacters=current.characters,previousRelations=previousCharacters.map(c=>c.relationships),previousPrecision=current.precisionChars,previousPositions=current.relationPositions?{...current.relationPositions}:null;if(!commitEdit(()=>{current.characters=current.characters.filter(c=>c.id!==target.id);current.characters.forEach(c=>{if(Array.isArray(c.relationships))c.relationships=c.relationships.filter(r=>String(r.targetId)!==String(target.id))});if(Array.isArray(current.precisionChars))current.precisionChars=current.precisionChars.filter(id=>String(id)!==String(target.id));if(current.relationPositions)delete current.relationPositions[target.id]},()=>{current.characters=previousCharacters;previousCharacters.forEach((c,i)=>c.relationships=previousRelations[i]);current.precisionChars=previousPrecision;if(previousPositions)current.relationPositions=previousPositions}))return;roleSheet();notify('角色已删除')}})
+    }
+    function roleFormSheet(current,target){
+      openSheet(target?'编辑角色':'新增角色',`<form class="sheet-form" id="roleForm"><div class="form-group"><label class="form-label" for="roleName">姓名</label><input class="field" id="roleName" required maxlength="80" value="${esc(target?.name||'')}"></div><div class="form-group"><label class="form-label" for="roleAppearance">外貌体征</label><textarea class="field" id="roleAppearance">${esc(target?.appearance||'')}</textarea></div><div class="form-group"><label class="form-label" for="rolePersonality">性格</label><textarea class="field" id="rolePersonality">${esc(target?.personality||'')}</textarea></div><div class="form-group"><label class="form-label" for="roleSpecial">服装及其他设定</label><textarea class="field" id="roleSpecial">${esc(target?.special||'')}</textarea></div><div class="form-group"><label class="form-label" for="roleRelationship">身份关联</label><textarea class="field" id="roleRelationship">${esc(target?.relationship||'')}</textarea></div><div class="sheet-actions"><button class="btn" type="button" id="cancelRole">取消</button><button class="btn primary" type="submit">保存角色</button></div></form>`);
+      watchSheetForm('roleForm');$('cancelRole').onclick=()=>leaveSheet(roleSheet);
+      $('roleForm').onsubmit=e=>{e.preventDefault();const name=$('roleName').value.trim();if(!name)return;const fields={name,appearance:$('roleAppearance').value.trim(),personality:$('rolePersonality').value.trim(),special:$('roleSpecial').value.trim(),relationship:$('roleRelationship').value.trim()};const previous=target?Object.fromEntries(Object.keys(fields).map(key=>[key,target[key]])):null,added=target?null:{id:uid(),...fields,growth:[]};if(!commitEdit(()=>{if(target)Object.assign(target,fields);else(current.characters||=[]).push(added)},()=>{if(target)Object.assign(target,previous);else current.characters=current.characters.filter(c=>c.id!==added.id)}))return;roleSheet();notify('角色已保存')};
+    }
+    function actionSheet(){
+      openSheet('全局设定库',`<div class="sheet-list">${state.actions.map(a=>`<div class="sheet-row library-row"><div class="row-info"><strong>${esc(a.name)}</strong><small>${esc(a.keyPoints||'')}</small></div><button class="icon-btn" data-edit-action="${esc(a.id)}" aria-label="查看和编辑动作 ${esc(a.name)}" title="查看和编辑动作 ${esc(a.name)}"><i class="fa-solid fa-pen"></i></button><button class="icon-btn" data-delete-action="${esc(a.id)}" aria-label="删除动作 ${esc(a.name)}" title="删除动作 ${esc(a.name)}"><i class="fa-solid fa-trash"></i></button></div>`).join('')||'<p class="mini-note">暂无动作</p>'}</div><form class="sheet-form" id="actionForm" style="margin-top:18px"><div class="form-group"><label class="form-label" for="actionName">新增动作</label><input class="field" id="actionName" required placeholder="动作名称"></div><div class="form-group"><label class="form-label" for="actionPoints">动作要领</label><textarea class="field" id="actionPoints"></textarea></div><button class="btn primary wide" type="submit">保存动作</button></form>`);
+      watchSheetForm('actionForm');$('actionForm').onsubmit=e=>{e.preventDefault();const name=$('actionName').value.trim();if(!name)return;const added={id:uid(),name,keyPoints:$('actionPoints').value.trim(),linesUsage:'',descriptionTips:''};if(!commitEdit(()=>state.actions.push(added),()=>{state.actions=state.actions.filter(a=>a.id!==added.id)}))return;actionSheet();notify('动作已保存')};
+      $('sheetBody').querySelectorAll('[data-edit-action]').forEach(el=>el.onclick=()=>leaveSheet(()=>actionFormSheet(state.actions.find(a=>a.id===el.dataset.editAction))));
+      $('sheetBody').querySelectorAll('[data-delete-action]').forEach(el=>el.onclick=()=>leaveSheet(()=>{const target=state.actions.find(a=>a.id===el.dataset.deleteAction);if(!target)return;openSheet('确认删除动作',`<p class="mini-note">删除动作“${esc(target.name)}”？此操作无法撤销。</p><div class="sheet-actions"><button class="btn" id="cancelDeleteAction">取消</button><button class="btn danger" id="confirmDeleteAction">删除动作</button></div>`);$('cancelDeleteAction').onclick=actionSheet;$('confirmDeleteAction').onclick=()=>{const previousActions=state.actions,previousPrecision=state.books.map(b=>b.precisionActions);if(!commitEdit(()=>{state.actions=state.actions.filter(a=>a.id!==target.id);state.books.forEach(b=>{if(Array.isArray(b.precisionActions))b.precisionActions=b.precisionActions.filter(id=>String(id)!==String(target.id))})},()=>{state.actions=previousActions;state.books.forEach((b,i)=>b.precisionActions=previousPrecision[i])}))return;actionSheet();notify('动作已删除')}}))
+    }
+    function actionFormSheet(target){if(!target)return;openSheet('编辑动作',`<form class="sheet-form" id="editActionForm"><div class="form-group"><label class="form-label" for="editActionName">动作名称</label><input class="field" id="editActionName" required value="${esc(target.name)}"></div><div class="form-group"><label class="form-label" for="editActionPoints">动作要领</label><textarea class="field" id="editActionPoints">${esc(target.keyPoints||'')}</textarea></div>${target.linesUsage?`<div class="form-group"><span class="form-label">台词运用（PC 资料）</span><p class="mini-note">${esc(target.linesUsage)}</p></div>`:''}${target.descriptionTips?`<div class="form-group"><span class="form-label">描写建议（PC 资料）</span><p class="mini-note">${esc(target.descriptionTips)}</p></div>`:''}<div class="sheet-actions"><button class="btn" type="button" id="cancelEditAction">取消</button><button class="btn primary" type="submit">保存动作</button></div></form>`);watchSheetForm('editActionForm');$('cancelEditAction').onclick=()=>leaveSheet(actionSheet);$('editActionForm').onsubmit=e=>{e.preventDefault();const name=$('editActionName').value.trim();if(!name){notify('请填写动作名称');return}const previousName=target.name,previousPoints=target.keyPoints;if(!commitEdit(()=>{target.name=name;target.keyPoints=$('editActionPoints').value.trim()},()=>{target.name=previousName;target.keyPoints=previousPoints}))return;actionSheet();notify('动作已保存')}}
+    function growthSheet(){const roles=book().characters||[];openSheet('本书角色成长',`<div class="sheet-list">${roles.map(c=>{const growth=c.growth||[],latest=growth.at(-1),count=new Set(growth.map(g=>g.chapterId||`chapter:${g.chapNo||'?'}`)).size;return `<details class="sheet-row growth-card"><summary aria-label="${esc(c.name)}，${count} 章成长，点击展开"><span class="growth-heading"><strong>${esc(c.name)}</strong>${latest?`<span class="growth-latest">最新 · 第 ${esc(latest.chapNo||'?')} 章</span>`:''}<span class="growth-count">${count} 章成长</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></span><span class="growth-preview">${esc(latest?.text||'暂无成长记录')}</span></summary><div class="growth-history">${growth.map(g=>`<div class="growth-entry">第 ${esc(g.chapNo||'?')} 章 · ${esc(g.text||'')}</div>`).join('')||'<div class="growth-entry">暂无成长记录</div>'}</div></details>`}).join('')||'<p class="mini-note">暂无角色</p>'}</div>`)}
+    function changeReaderSize(size){
+      const panel=$('panel'),top=panel.getBoundingClientRect().top+(panel.querySelector('.reader-toolbar')?.offsetHeight||0);
+      const anchor=state.activeTab==='reader'?[...panel.querySelectorAll('.prose > *')].find(el=>el.getBoundingClientRect().bottom>top):null;
+      const before=anchor?.getBoundingClientRect().top;
+      state.readerFontSize=readerSize(size);$('app').style.setProperty('--reader-font-size',`${state.readerFontSize}px`);
+      if(anchor)panel.scrollTop+=anchor.getBoundingClientRect().top-before;
+      updateReaderScrollbar();scheduleSave();
+    }
+    function fontSizeSheet(){
+      openSheet('正文字号',`<div class="form-group"><label class="form-label" for="readerFontRange">正文大小</label><div class="font-size-control"><input id="readerFontRange" type="range" min="12" max="22" step="1" value="${state.readerFontSize}"><output id="readerFontValue" for="readerFontRange">${state.readerFontSize}px</output></div></div><button class="btn wide" id="resetReaderFont">恢复默认字号</button>`);
+      $('readerFontRange').oninput=()=>{changeReaderSize(Number($('readerFontRange').value));$('readerFontValue').textContent=`${state.readerFontSize}px`};
+      $('resetReaderFont').onclick=()=>{changeReaderSize(14);$('readerFontRange').value='14';$('readerFontValue').textContent='14px'};
+    }
+    function apiSheet(){
+      const cfg=state.apiConfig;
+      openSheet('AI 设置',`<form class="sheet-form" id="apiForm"><div class="form-group"><label class="form-label" for="apiUrl">API 地址</label><input class="field" id="apiUrl" type="url" required value="${esc(cfg.url||'')}" autocomplete="off"></div><div class="form-group"><label class="form-label" for="apiKey">API Key</label><input class="field" id="apiKey" type="password" value="${esc(apiKey)}" placeholder="输入你的 API Key" autocomplete="off"></div><div class="form-group"><label class="form-label" for="apiModel">模型</label><input class="field" id="apiModel" required value="${esc(cfg.model||'deepseek-flash')}" autocomplete="off"></div><details><summary>生成参数</summary><div class="form-group"><label class="form-label" for="apiTemp">温度</label><input class="field" id="apiTemp" type="number" min="0.1" max="2" step="0.1" value="${esc(cfg.temperature??'1.0')}"></div><div class="form-group"><label class="form-label" for="apiTopP">Top-p</label><input class="field" id="apiTopP" type="number" min="0.75" max="1.25" step="0.01" value="${esc(cfg.topP??'0.92')}"></div><div class="form-group"><label class="form-label" for="apiPresence">存在惩罚</label><input class="field" id="apiPresence" type="number" min="0" max="1.5" step="0.1" value="${esc(cfg.presence??'0.5')}"></div><div class="form-group"><label class="form-label" for="apiFrequency">频率惩罚</label><input class="field" id="apiFrequency" type="number" min="0" max="1" step="0.1" value="${esc(cfg.frequency??'0.4')}"></div><div class="form-group"><label class="form-label" for="apiRepetition">重复惩罚</label><input class="field" id="apiRepetition" type="number" min="1" max="1.25" step="0.05" value="${esc(cfg.repetition??'1.15')}"></div><div class="form-group"><label class="form-label" for="apiMax">Max tokens</label><input class="field" id="apiMax" type="number" min="3000" max="90000" value="${esc(cfg.maxTokens??'60000')}"></div><div class="form-group"><label class="form-label" for="apiCtx">前文摘要章数</label><input class="field" id="apiCtx" type="number" min="1" max="50" value="${esc(cfg.ctxChapters??'5')}"></div><div class="form-group"><label class="form-label" for="apiStop">停止词</label><input class="field" id="apiStop" value="${esc(cfg.stopWords??'')}" placeholder="逗号分隔"></div><div class="form-group"><label class="form-label" for="apiReasoning">推理强度</label><select class="field" id="apiReasoning"><option value="low" ${cfg.reasoning==='low'?'selected':''}>low</option><option value="high" ${!cfg.reasoning||cfg.reasoning==='high'?'selected':''}>high</option><option value="max" ${cfg.reasoning==='max'?'selected':''}>max</option></select></div><label class="form-label"><input id="apiThinking" type="checkbox" ${cfg.thinking?'checked':''}> 思考模式</label></details><div class="sheet-actions"><button class="btn" type="button" id="testApi">测试</button><button class="btn primary" type="submit">保存设置</button></div></form>`);
+      $('apiForm').insertAdjacentHTML('beforeend','<p class="mini-note" id="apiTestStatus" role="status" style="margin-top:12px">API Key 仅加密保存在本机，不写入分享存档。</p>');
+      const markApiSaved=watchSheetForm('apiForm');
+      const read=()=>({url:$('apiUrl').value.trim(),key:$('apiKey').value.trim(),model:$('apiModel').value.trim(),temperature:$('apiTemp').value,topP:$('apiTopP').value,presence:$('apiPresence').value,frequency:$('apiFrequency').value,repetition:$('apiRepetition').value,maxTokens:$('apiMax').value,ctxChapters:$('apiCtx').value,stopWords:$('apiStop').value,reasoning:$('apiReasoning').value,thinking:$('apiThinking').checked});
+      const persist=cfg=>{if(!saveApiSettings(cfg))return false;apiKey=cfg.key;const {key,...publicConfig}=cfg;state.apiConfig=publicConfig;markApiSaved();return true};
+      $('apiForm').onsubmit=e=>{e.preventDefault();const cfg=read();if(!$('apiForm').reportValidity())return;if(!persist(cfg))return;closeSheet();notify('AI 设置已保存')};
+      $('testApi').onclick=async()=>{const form=$('apiForm'),cfg=read(),tested=JSON.stringify(cfg);if(!form.reportValidity())return;if(!cfg.key){$('apiTestStatus').textContent='请填写 API Key';return}const button=$('testApi'),status=$('apiTestStatus');button.disabled=true;status.textContent='正在连接…';const controller=new AbortController();const messages=[{role:'user',content:'请只回复：连接成功'}];const body={model:cfg.model,messages,max_tokens:cfg.thinking?1024:128};if(cfg.thinking){body.thinking={type:'enabled'};body.reasoning_effort=cfg.reasoning}try{const result=await requestAI(cfg,messages,controller,body.max_tokens,body,30000,false);if($('apiForm')===form){if(JSON.stringify(read())!==tested){status.textContent='测试期间设置已修改，请重新测试或保存当前设置';return}const saved=persist(cfg);status.textContent=result.content?(saved?'连接及回复正常，当前设置已保存':'连接及回复正常，但设置保存失败'):(saved?'API 已连通，但本次没有返回文字；设置已保存，请检查模型与思考模式':'API 已连通，但本次没有返回文字，且设置保存失败')}}catch(err){if($('apiForm')===form)status.textContent=JSON.stringify(read())!==tested?'测试期间设置已修改，请重新测试或保存当前设置':`连接失败：${apiError(err)}`}finally{button.disabled=false}}
+    }
+    function backupObject(){const cfg=state.apiConfig;return {version:'7.7',appArchiveVersion:1,timestamp:Date.now(),books:state.books,currentBookId:state.activeBookId,globalActions:state.actions,globalCharacters:state.globalCharacters,globalCostumes:[],appReaderFontSize:state.readerFontSize,appConfig:{...cfg},apiConfig:{url:cfg.url,key:'',model:cfg.model,temp:Number(cfg.temperature),top_p:Number(cfg.topP),presPenalty:Number(cfg.presence),freqPenalty:Number(cfg.frequency),repetition_penalty:Number(cfg.repetition),maxTokens:Number(cfg.maxTokens),ctxChapters:Number(cfg.ctxChapters),stopWords:cfg.stopWords,thinking:cfg.thinking,reasoningEffort:cfg.reasoning}}}
+    function backupFile(){const stamp=new Date().toISOString().replace(/[-:]/g,'').replace('T','_').slice(0,15);return new File([JSON.stringify(backupObject(),null,2)],`小说项目_${stamp}.json`,{type:'application/json'})}
+    function bookText(current){const chapters=current.chapters||[];return '\uFEFF'+current.name+'\r\n\r\n'+chapters.map((item,index)=>{let body=String(item.content||'').replace(/\r\n?/g,'\n').trim();body=body.replace(/^#{1,6}\s+[^\n]+\n+/, '');return `${item.title||`第${index+1}章`}\n\n${body}`.replace(/\n/g,'\r\n')}).join('\r\n\r\n')+'\r\n'}
+    function downloadFile(file){const url=URL.createObjectURL(file);const link=document.createElement('a');link.href=url;link.download=file.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+    function restoreProject(data){
+      if(!record(data)||data.appArchiveVersion!==1||!Array.isArray(data.books)||!Array.isArray(data.globalActions))throw Error('只支持本 App 导出的项目存档');
+      if(!validLibrary(data.books,data.globalActions,data.globalCharacters===undefined?[]:data.globalCharacters))throw Error('存档中的作品、章节、消息或资料不完整');
+      if(!record(data.appConfig)||typeof data.appConfig.url!=='string'||typeof data.appConfig.model!=='string'||Object.values(data.appConfig).some(value=>value!==null&&!['string','number','boolean'].includes(typeof value)))throw Error('存档中的 AI 设置不完整');
+      const returnToStart=$('sheetTitle').textContent==='开始使用';
+      openSheet('确认恢复',`<p class="mini-note">将用此存档替换 App 中的全部作品、全局角色和动作资料。此操作无法撤销。</p><div class="sheet-actions"><button class="btn" id="cancelRestore">取消</button><button class="btn danger" id="confirmRestore">恢复存档</button></div>`);
+      $('cancelRestore').onclick=returnToStart?startSheet:archiveSheet;
+      $('confirmRestore').onclick=()=>{
+        const previous=state,previousKey=apiKey,wasDamaged=storageDamaged;
+        state={...emptyState(),books:data.books,actions:data.globalActions,globalCharacters:data.globalCharacters===undefined?[]:data.globalCharacters,readerFontSize:readerSize(data.appReaderFontSize),activeBookId:data.books.some(item=>item.id===data.currentBookId)?data.currentBookId:data.books[0]?.id||null,apiConfig:{...emptyState().apiConfig,...data.appConfig}};
+        normalizeBooks(state.books);
+        delete state.apiConfig.key;
+        state.selectedChapterId=book()?.chapters?.at(-1)?.id||null;
+        storageDamaged=false;
+        if(!saveApiSettings({...state.apiConfig,key:''})){state=previous;storageDamaged=wasDamaged;updateStorageError();notify('恢复失败，原有资料未改变');return}
+        if(!saveState()){state=previous;storageDamaged=wasDamaged;if(!saveApiSettings({...previous.apiConfig,key:previousKey}))notify('恢复失败，AI 设置也未能回退，请检查设置');else notify('恢复失败，原有资料未改变');updateStorageError();return}
+        apiKey='';$('app').style.setProperty('--reader-font-size',`${state.readerFontSize}px`);
+        closeSheet();render();if(!state.books.length)newBookSheet();notify('存档已恢复');
+      };
+    }
+    window.nativeBackupImported=raw=>{try{restoreProject(JSON.parse(raw))}catch(err){notify(err.message||'无法读取此存档')}};
+    window.nativeExportSaved=message=>notify(message||'文件已导出');
+    window.nativeBackupError=message=>notify(`文件操作失败：${message}`);
+    function confirmExitDuringTask(){openSheet('停止生成并退出？','<p class="mini-note">AI 正在处理。退出会停止当前请求，已保存的内容仍会保留。</p><div class="sheet-actions"><button class="btn" id="keepWaiting">继续等待</button><button class="btn danger" id="stopAndExit">停止并退出</button></div>');$('keepWaiting').onclick=closeSheet;$('stopAndExit').onclick=()=>{closeSheet();stopTask();AndroidBridge.exitApp()}}
+    window.androidBack=()=>{if(!$('discardBackdrop').hidden){$('keepEditing').click();return true}if(!$('sheetBackdrop').hidden){leaveSheet();return true}if(!$('drawerBackdrop').hidden){closeDrawer();return true}if(busy()){confirmExitDuringTask();return true}if(state.readerContinuous){toggleReaderMode();return true}return false};
+    function archiveSheet(){
+      openSheet('存档与分享',`<div class="sheet-list"><button class="btn wide" id="exportProject"><i class="fa-solid fa-download"></i> 导出项目存档</button><button class="btn wide" id="exportBookText" ${book()?.chapters?.length?'':'disabled'}><i class="fa-solid fa-file-lines"></i> 导出本书正文（TXT）</button><button class="btn wide" id="shareProject"><i class="fa-solid fa-share-nodes"></i> 分享项目存档</button><label class="btn wide" for="restoreFile"><i class="fa-solid fa-rotate-left"></i> 从存档恢复</label><input id="restoreFile" type="file" accept=".json,application/json" hidden><button class="btn danger wide" id="initializeData"><i class="fa-solid fa-trash"></i> 初始化数据</button></div><p class="mini-note" style="margin-top:14px">存档包含作品、全局角色与动作库，不包含 API Key。</p>`);
+      $('exportProject').onclick=()=>{if(nativeHost)AndroidBridge.exportProject(JSON.stringify(backupObject()));else{downloadFile(backupFile());notify('项目存档已导出')}};
+      $('exportBookText').onclick=()=>{const current=book();if(!current?.chapters?.length)return;const content=bookText(current);if(nativeHost)AndroidBridge.exportBookText(content,current.name);else{downloadFile(new File([content],`${current.name}_正文.txt`,{type:'text/plain;charset=utf-8'}));notify('本书正文已导出')}};
+      $('shareProject').onclick=async()=>{if(nativeHost){AndroidBridge.shareProject(JSON.stringify(backupObject()));return}const file=backupFile();if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'小说项目存档'});notify('已打开系统分享')}catch(e){if(e.name!=='AbortError')notify('分享未完成')}}else{downloadFile(file);notify('当前浏览器已改为下载存档')}};
+      $('restoreFile').onchange=async e=>{if(nativeHost)return;const file=e.target.files?.[0];if(!file)return;try{restoreProject(JSON.parse(await file.text()))}catch(err){notify(err.message||'无法读取此存档')}};
+      if(nativeHost)$('restoreFile').previousElementSibling.onclick=e=>{e.preventDefault();AndroidBridge.chooseProject()};
+      $('initializeData').onclick=initializeDataSheet;
+    }
+    function initializeDataSheet(){openSheet('初始化数据',`<p class="mini-note">将清空全部作品、章节、全局角色和动作资料，并重置 AI 设置与阅读字号。此操作无法撤销。</p><div class="sheet-actions"><button class="btn" id="cancelInitialize">取消</button><button class="btn danger" id="confirmInitialize">确认初始化</button></div>`);$('cancelInitialize').onclick=archiveSheet;$('confirmInitialize').onclick=()=>{const previous=state,previousKey=apiKey,wasDamaged=storageDamaged;state=emptyState();storageDamaged=false;if(!saveApiSettings({...state.apiConfig,key:''})){state=previous;storageDamaged=wasDamaged;updateStorageError();notify('初始化失败，原有资料未改变');return}if(!saveState()){state=previous;storageDamaged=wasDamaged;if(!saveApiSettings({...previous.apiConfig,key:previousKey}))notify('初始化失败，AI 设置也未能回退，请检查设置');else notify('初始化失败，原有资料未改变');updateStorageError();return}apiKey='';$('app').style.setProperty('--reader-font-size',`${state.readerFontSize}px`);render();newBookSheet()}}
+    function showSheet(name){if(guardBusy())return;if(!book()&&(name==='roles'||name==='growth')){newBookSheet();return}({books:booksSheet,roles:roleSheet,actions:actionSheet,globalRoles:globalRoleSheet,growth:growthSheet,api:apiSheet,fontSize:fontSizeSheet,help:helpSheet,version:versionSheet})[name]?.()}
+    $('menuButton').onclick=()=>{if(!guardBusy())$('drawerBackdrop').hidden=false};
+    $('railToggleButton').onclick=()=>{if(guardBusy())return;state.railCompact=!state.railCompact;saveState();render()};
+    $('closeDrawer').onclick=closeDrawer;
+    $('drawerBackdrop').onclick=e=>{if(e.target===$('drawerBackdrop'))closeDrawer()};
+    document.querySelectorAll('[data-sheet]').forEach(el=>el.onclick=()=>{closeDrawer();showSheet(el.dataset.sheet)});
+    $('closeSheet').onclick=()=>leaveSheet();
+    $('sheetBackdrop').onclick=e=>{if(e.target===$('sheetBackdrop'))leaveSheet()};
+    $('archiveButton').onclick=()=>{if(!guardBusy())archiveSheet()};
+    document.querySelectorAll('.tab').forEach(el=>el.onclick=()=>setTab(el.dataset.tab));
+    $('newChapterButton').onclick=()=>generateChapter();
+    $('continueButton').onclick=openDirections;
+    $('refillButton').onclick=refillSheet;
+    $('clearButton').onclick=clearDraftSheet;
+    $('stopButton').onclick=stopTask;
+    $('instruction').oninput=()=>{const current=book();if(current){current.draft=$('instruction').value;$('clearButton').disabled=!current.draft;scheduleSave()}};
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('discardBackdrop').hidden)$('keepEditing').click();else if(!$('sheetBackdrop').hidden)leaveSheet();else closeDrawer()}});
+    window.addEventListener('resize',updateReaderScrollbar);
+    if(!state.books.some(b=>b.id===state.activeBookId))state.activeBookId=state.books[0]?.id||null;
+    if(nativeHost&&state.pendingNativeTask)void resumeNativeTask();else if(state.activeTab==='reader'&&state.readerContinuous&&book())prepareReader();else render();
+    if(storageDamaged)archiveSheet();else if(!state.books.length)startSheet();else if(!activeTask&&book()?.pendingDirections)showDirectionChoices(book());
+    if(nativeHost)AndroidBridge.pageReady();
+  </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+def appVersionSource = file('src/main/assets/version.js').text
+def appVersionMatcher = appVersionSource =~ /NOVEL_APP_VERSION\s*=\s*'([^']+)'/
+if (!appVersionMatcher.find()) throw new GradleException('version.js 中缺少版本号')
+def appVersion = appVersionMatcher.group(1)
+
+android {
+    namespace 'com.novelwriter.mobile'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.novelwriter.mobile'
+        minSdk 26
+        targetSdk 35
+        versionCode 19
+        versionName appVersion
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            output.outputFileName = "${variant.versionName}小说生成器.apk"
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}
