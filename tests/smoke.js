@@ -199,7 +199,12 @@ const saved = {
         loadProject: () => null, hasProject: () => false,
         loadApiSettings: () => JSON.stringify({ ...config, key: '' }),
         saveApiSettings: () => true, saveProject: json => (localStorage.setItem('native_project', json), true),
-        chooseProject: () => localStorage.setItem('native_choose_called', 'yes'), pageReady: () => {}
+        chooseProject: () => localStorage.setItem('native_choose_called', 'yes'), pageReady: () => {},
+        appVersion: () => '1.20',
+        checkUpdate: () => { localStorage.setItem('update_check_called', 'yes'); },
+        downloadUpdate: () => { localStorage.setItem('update_download_called', 'yes'); },
+        installUpdate: () => { localStorage.setItem('update_install_called', 'yes'); },
+        cancelUpdateDownload: () => { localStorage.setItem('update_cancel_called', 'yes'); }
       };
     }, saved.apiConfig);
     const nativeFreshPage = await nativeFresh.newPage();
@@ -214,6 +219,31 @@ const saved = {
     await nativeFreshPage.evaluate(data => window.nativeBackupImported(JSON.stringify(data)), archive);
     await nativeFreshPage.locator('#confirmRestore').click();
     assert.equal(await nativeFreshPage.locator('#topBookName').innerText(), '测试作品');
+    await nativeFreshPage.locator('#menuButton').click();
+    await nativeFreshPage.locator('[data-sheet="version"]').click();
+    assert.match(await nativeFreshPage.locator('#sheetBody').innerText(), /1\.20/);
+    await nativeFreshPage.locator('#checkUpdate').click();
+    assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_check_called')), 'yes');
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'available', version: '1.21', sizeMb: 2.5, notes: '修复更新流程' })));
+    assert.match(await nativeFreshPage.locator('#updatePanel').innerText(), /1\.21/);
+    await nativeFreshPage.setViewportSize({ width: 320, height: 420 });
+    assert.ok(await nativeFreshPage.locator('#downloadUpdate').evaluate(button => {
+      const bounds=button.getBoundingClientRect();return bounds.left>=0&&bounds.right<=innerWidth&&bounds.height>=48;
+    }));
+    await nativeFreshPage.locator('#downloadUpdate').click();
+    assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_download_called')), 'yes');
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'progress', percent: 50 })));
+    assert.equal(await nativeFreshPage.locator('progress').getAttribute('value'), '50');
+    await nativeFreshPage.locator('#cancelUpdateDownload').click();
+    assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_cancel_called')), 'yes');
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'available', message: '下载已取消' })));
+    assert.equal(await nativeFreshPage.locator('#downloadUpdate').isVisible(), true);
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'error', message: '网络中断', canDownload: true })));
+    assert.equal(await nativeFreshPage.locator('#downloadUpdate').innerText(), '重新下载');
+    await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'downloaded', message: '下载完成，可以安装' })));
+    await nativeFreshPage.locator('#installUpdate').click();
+    assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_install_called')), 'yes');
+    assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('native_project')).books[0].name), '测试作品');
     await nativeFresh.close();
 
     const context = await browser.newContext({ viewport: { width: 412, height: 958 } });
@@ -372,7 +402,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.19/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.20/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();

@@ -2,7 +2,7 @@
 
 面向安卓手机的 AI 小说创作工具。以书籍、章节和消息为主线，结合角色、动作、世界设定与写作提示，完成正文、摘要、角色成长和续写走向的生成。
 
-**当前版本：1.19（测试版）** · 支持 Android 8.0 及以上 · [下载 APK](https://github.com/xiaohuangya617/novel-writer-android/releases/download/1.19/1.19-NovelGenerator.apk) · [查看历次发布](https://github.com/xiaohuangya617/novel-writer-android/releases)
+**当前版本：1.20（正式版）** · 支持 Android 8.0 及以上 · [下载 APK](https://github.com/xiaohuangya617/novel-writer-android/releases/download/1.20/1.20-NovelGenerator.apk) · [查看历次发布](https://github.com/xiaohuangya617/novel-writer-android/releases)
 
 ## 快速开始
 
@@ -25,13 +25,14 @@
 | 阅读 | Markdown 正文、跨章节连续全屏阅读；正文和消息字号分别在 12～30px 调节，默认 20px 和 16px。 |
 | 任务控制 | 生成期间显示等待状态，可停止；失败后保留指令并提供相应重试入口，应用未关闭时可接续后台任务。 |
 | 文件 | 导出或分享项目 JSON、恢复本 App 存档、导出当前书籍的 TXT 正文。 |
+| 更新 | 在“当前版本”中检查 GitHub 正式版，查看更新说明，选择下载并交由系统确认安装。下载后校验文件摘要、包名、版本号及签名。 |
 
 ## 存档与更新
 
 - 项目存档包含作品、章节、角色、动作和 App 设置，**不包含 API Key**。Key 由 Android Keystore 加密保存在本机。
 - 恢复项目存档会**完全覆盖** App 现有资料，操作前建议先导出当前项目。App 导出的项目可交给 PC 端继续编辑；PC 端完整存档含手机端不支持的资料，不能反向直接导入本 App。
-- 当前 APK 使用调试签名，适合测试。正式分发前需要稳定的发布签名；签名证书变更会影响覆盖安装。更新前请导出项目存档。
-- 目前通过 [GitHub Releases](https://github.com/xiaohuangya617/novel-writer-android/releases) 手动下载新包。**App 内检查、下载和安装更新尚未实现。**
+- **从 1.19 或更早测试版迁移到 1.20：**1.20 首次使用正式发布签名，不能覆盖旧测试包。请先在旧版导出项目 JSON，再卸载旧版、安装 1.20、从存档恢复；API Key 不在存档中，需重新填写。1.19 项目存档格式可直接用于 1.20。
+- **从 1.20 更新到后续正式版：**只要沿用相同包名和发布签名，系统覆盖安装会保留本地项目与加密保存的 API Key。不要先卸载旧版。更新功能由用户在“当前版本”手动触发，下载后还需在系统界面确认安装；也可在 [GitHub Releases](https://github.com/xiaohuangya617/novel-writer-android/releases) 手动下载。
 
 ## 构建与测试
 
@@ -41,7 +42,7 @@
 gradle assembleDebug
 ```
 
-APK 输出在 `app/build/outputs/apk/debug/`。浏览器回归需要 Node.js 18+ 及本机 Edge 或 Chromium：
+调试 APK 输出在 `app/build/outputs/apk/debug/`。正式包使用独立发布签名，密钥不包含在仓库中；自行构建时需在项目根目录提供 `发布签名/novel-release.jks`（别名 `novel-release`），并通过环境变量 `NOVEL_RELEASE_PASSWORD` 传入密码，再运行 `gradle assembleRelease`。发布者必须妥善备份密钥和密码，丢失后无法用新签名覆盖现有安装。浏览器回归需要 Node.js 18+ 及本机 Edge 或 Chromium：
 
 ```powershell
 npm install
@@ -56,6 +57,7 @@ npm test
 
 | 版本 | 主要变化 |
 | --- | --- |
+| **1.20** | 首个正式版；新增 App 内检查更新、更新说明、下载进度、取消下载、APK 校验和系统安装确认。改用长期发布签名，旧测试版需迁移一次。 |
 | **1.19** | 消息字号默认 16px、正文字号默认 20px；“当前版本”浮窗加入公开源码链接。 |
 | **1.18** | 侧边栏调整，新增独立消息字号；恢复存档入口改为绿色。 |
 | **1.17** | 角色成长折叠卡压缩为固定高度，优化侧边栏名称。 |

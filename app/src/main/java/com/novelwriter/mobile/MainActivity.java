@@ -5,6 +5,7 @@ import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.net.Uri;
 import android.graphics.Color;
 import android.view.ViewGroup;
@@ -43,11 +44,13 @@ public final class MainActivity extends Activity {
     private static final String APP_ORIGIN = "https://app.local";
     private static final int EXPORT_FILE = 101;
     private static final int IMPORT_FILE = 102;
+    private static final int UPDATE_PERMISSION = 103;
     private static final String PENDING_EXPORT_FILE = "pending_export_file";
     private static final String PENDING_EXPORT_LABEL = "pending_export_label";
     private WebView webView;
     private SecureStore store;
     private AiRequests requests;
+    private UpdateManager updater;
     private final AiRequests.Callback requestCallback = this::deliverRequest;
     private final ExecutorService files = Executors.newSingleThreadExecutor();
     private File pendingExportFile;
@@ -55,6 +58,7 @@ public final class MainActivity extends Activity {
     private boolean pageReady;
     private String pendingFileFunction;
     private String pendingFileValue;
+    private String pendingUpdateEvent;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -71,6 +75,7 @@ public final class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
         store = new SecureStore(this);
+        updater = new UpdateManager(this, event -> runOnUiThread(() -> sendUpdateEvent(event)));
         requests = AiRequests.shared(this);
         requests.attach(requestCallback);
         webView = new WebView(this);
@@ -213,6 +218,32 @@ public final class MainActivity extends Activity {
         } });
     }
 
+    private void installUpdate() {
+        File apk = updater.downloadedFile();
+        if (apk == null || !apk.isFile()) {
+            updateMessage("downloadMissing", "更新包不存在，请重新下载");
+            return;
+        }
+        try {
+            if (!getPackageManager().canRequestPackageInstalls()) {
+                Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getPackageName()));
+                startActivityForResult(settings, UPDATE_PERMISSION);
+                updateMessage("permission", "请允许此应用安装更新，返回后继续安装");
+                return;
+            }
+            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".files", apk);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "application/vnd.android.package-archive");
+            intent.setClipData(ClipData.newRawUri("小说生成器更新包", uri));
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(intent);
+            updateMessage("installing", "请在系统界面确认安装");
+        } catch (Exception error) {
+            updateMessage("installError", error.getMessage() == null ? "无法打开系统安装器" : error.getMessage());
+        }
+    }
+
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == EXPORT_FILE) {
@@ -259,6 +290,9 @@ public final class MainActivity extends Activity {
             } catch (Exception error) {
                 runOnUiThread(() -> sendFileEvent("window.nativeBackupError", error.getMessage()));
             } });
+        } else if (requestCode == UPDATE_PERMISSION) {
+            if (getPackageManager().canRequestPackageInstalls()) installUpdate();
+            else updateMessage("permission", "需要允许此应用安装更新，才能继续");
         }
     }
 
@@ -275,12 +309,34 @@ public final class MainActivity extends Activity {
         sendToPage(function, value);
     }
 
+    private void sendUpdateEvent(String value) {
+        if (!pageReady) {
+            pendingUpdateEvent = value;
+            return;
+        }
+        sendToPage("window.nativeUpdateEvent", value);
+    }
+
+    private void updateMessage(String status, String message) {
+        try {
+            JSONObject event = new JSONObject();
+            event.put("status", status);
+            event.put("message", message);
+            sendUpdateEvent(event.toString());
+        } catch (Exception ignored) { }
+    }
+
     private void markPageReady() {
         pageReady = true;
-        if (pendingFileFunction == null) return;
-        sendToPage(pendingFileFunction, pendingFileValue);
-        pendingFileFunction = null;
-        pendingFileValue = null;
+        if (pendingFileFunction != null) {
+            sendToPage(pendingFileFunction, pendingFileValue);
+            pendingFileFunction = null;
+            pendingFileValue = null;
+        }
+        if (pendingUpdateEvent != null) {
+            sendToPage("window.nativeUpdateEvent", pendingUpdateEvent);
+            pendingUpdateEvent = null;
+        }
     }
 
     private void deliverRequest(String id, String response) {
@@ -307,6 +363,7 @@ public final class MainActivity extends Activity {
             if (isFinishing()) requests.shutdown();
         }
         files.shutdown();
+        if (updater != null) updater.shutdown();
         if (isFinishing() && pendingExportFile != null) pendingExportFile.delete();
         if (webView != null) {
             webView.removeJavascriptInterface("AndroidBridge");
@@ -322,6 +379,10 @@ public final class MainActivity extends Activity {
             try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
             catch (Exception error) { return "未知"; }
         }
+        @JavascriptInterface public void checkUpdate() { updater.check(); }
+        @JavascriptInterface public void downloadUpdate() { updater.download(); }
+        @JavascriptInterface public void cancelUpdateDownload() { updater.cancelDownload(); }
+        @JavascriptInterface public void installUpdate() { runOnUiThread(MainActivity.this::installUpdate); }
         @JavascriptInterface public String loadProject() { return store.loadProject(); }
         @JavascriptInterface public boolean hasProject() { return store.hasProject(); }
         @JavascriptInterface public boolean saveProject(String json) { return store.saveProject(json); }

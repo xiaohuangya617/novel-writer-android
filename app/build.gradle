@@ -6,6 +6,7 @@ def appVersionSource = file('src/main/assets/version.js').text
 def appVersionMatcher = appVersionSource =~ /NOVEL_APP_VERSION\s*=\s*'([^']+)'/
 if (!appVersionMatcher.find()) throw new GradleException('version.js 中缺少版本号')
 def appVersion = appVersionMatcher.group(1)
+def releasePassword = System.getenv('NOVEL_RELEASE_PASSWORD')
 
 android {
     namespace 'com.novelwriter.mobile'
@@ -15,13 +16,23 @@ android {
         applicationId 'com.novelwriter.mobile'
         minSdk 26
         targetSdk 35
-        versionCode 21
+        versionCode 22
         versionName appVersion
+    }
+
+    signingConfigs {
+        release {
+            storeFile rootProject.file('发布签名/novel-release.jks')
+            storePassword releasePassword ?: ''
+            keyAlias 'novel-release'
+            keyPassword releasePassword ?: ''
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
         }
     }
 
