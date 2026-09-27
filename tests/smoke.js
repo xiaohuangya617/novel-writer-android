@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const vm = require('node:vm');
 const { chromium } = require('playwright-core');
 
@@ -89,6 +90,10 @@ const saved = {
     assert.deepEqual(await freshPage.evaluate(() => [state.globalCharacters.length, state.readerFontSize, state.messageFontSize]), [0, 20, 16]);
     await freshPage.locator('#archiveButton').click();
     assert.equal(await freshPage.locator('label[for="restoreFile"]').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(19, 109, 81)');
+    assert.deepEqual(await freshPage.locator('#sheetBody .sheet-list > button, #sheetBody .sheet-list > label').allInnerTexts(), [
+      '导出本书正文（txt）', '导出项目存档（app）', '分享项目存档（app）',
+      '分享项目存档（html）', '恢复项目存档（app）', '初始化所有数据'
+    ]);
     await freshPage.locator('#closeSheet').click();
     await freshPage.locator('#menuButton').click();
     await freshPage.locator('[data-sheet="globalRoles"]').click();
@@ -179,6 +184,15 @@ const saved = {
     const featureArchive = await freshPage.evaluate(() => backupObject());
     assert.equal(featureArchive.appReaderFontSize, 20);
     assert.equal(featureArchive.appMessageFontSize, 30);
+    const htmlArchive = await freshPage.evaluate(() => htmlBackupObject());
+    assert.equal(htmlArchive.version, '7.7');
+    assert.equal(htmlArchive.books[0].name, '测试作品');
+    assert.equal(htmlArchive.globalCharacters[0].name, '朝日奈葵');
+    assert.equal(htmlArchive.apiConfig.key, '');
+    assert.ok(!('appArchiveVersion' in htmlArchive));
+    assert.ok(!('appReaderFontSize' in htmlArchive));
+    assert.ok(!('appMessageFontSize' in htmlArchive));
+    assert.ok(!('appConfig' in htmlArchive));
     await freshPage.reload();
     assert.equal(await freshPage.locator('.prose').evaluate(el => getComputedStyle(el).fontSize), '20px');
     await freshPage.evaluate(data => restoreProject(data), featureArchive);
@@ -200,11 +214,14 @@ const saved = {
         loadApiSettings: () => JSON.stringify({ ...config, key: '' }),
         saveApiSettings: () => true, saveProject: json => (localStorage.setItem('native_project', json), true),
         chooseProject: () => localStorage.setItem('native_choose_called', 'yes'), pageReady: () => {},
-        appVersion: () => '1.20',
+        appVersion: () => '1.21',
         checkUpdate: () => { localStorage.setItem('update_check_called', 'yes'); },
+        refreshUpdate: () => { localStorage.setItem('update_refresh_called', 'yes'); },
         downloadUpdate: () => { localStorage.setItem('update_download_called', 'yes'); },
         installUpdate: () => { localStorage.setItem('update_install_called', 'yes'); },
-        cancelUpdateDownload: () => { localStorage.setItem('update_cancel_called', 'yes'); }
+        cancelUpdateDownload: () => { localStorage.setItem('update_cancel_called', 'yes'); },
+        shareProject: json => { localStorage.setItem('shared_app', json); },
+        shareHtmlProject: json => { localStorage.setItem('shared_html', json); }
       };
     }, saved.apiConfig);
     const nativeFreshPage = await nativeFresh.newPage();
@@ -221,7 +238,8 @@ const saved = {
     assert.equal(await nativeFreshPage.locator('#topBookName').innerText(), '测试作品');
     await nativeFreshPage.locator('#menuButton').click();
     await nativeFreshPage.locator('[data-sheet="version"]').click();
-    assert.match(await nativeFreshPage.locator('#sheetBody').innerText(), /1\.20/);
+    assert.match(await nativeFreshPage.locator('#sheetBody').innerText(), /1\.21/);
+    assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_refresh_called')), 'yes');
     await nativeFreshPage.locator('#checkUpdate').click();
     assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_check_called')), 'yes');
     await nativeFreshPage.evaluate(() => window.nativeUpdateEvent(JSON.stringify({ status: 'available', version: '1.21', sizeMb: 2.5, notes: '修复更新流程' })));
@@ -244,7 +262,29 @@ const saved = {
     await nativeFreshPage.locator('#installUpdate').click();
     assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_install_called')), 'yes');
     assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('native_project')).books[0].name), '测试作品');
+    await nativeFreshPage.locator('#closeSheet').click();
+    await nativeFreshPage.locator('#archiveButton').click();
+    await nativeFreshPage.locator('#shareProject').click();
+    assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('shared_app')).appArchiveVersion), 1);
+    await nativeFreshPage.locator('#shareHtmlProject').click();
+    assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('shared_html')).appArchiveVersion), undefined);
     await nativeFresh.close();
+
+    const pcHtml = path.resolve(__dirname, '../../AI小说生成器8.7.html');
+    if (fs.existsSync(pcHtml)) {
+      const pcPage = await browser.newPage();
+      const pcErrors = [];
+      pcPage.on('pageerror', error => pcErrors.push(error.message));
+      pcPage.on('dialog', dialog => dialog.accept());
+      await pcPage.goto(pathToFileURL(pcHtml).href, { waitUntil: 'domcontentloaded' });
+      await pcPage.waitForFunction(() => typeof document.getElementById('backupFileInput').onchange === 'function');
+      await pcPage.locator('#backupFileInput').setInputFiles({ name: 'mobile-html.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(htmlArchive)) });
+      await pcPage.waitForFunction(() => document.getElementById('curBookName')?.textContent?.includes('测试作品'));
+      assert.ok((await pcPage.locator('#chaptersList').innerText()).includes('第100章'));
+      assert.equal(await pcPage.evaluate(() => JSON.parse(localStorage.getItem('global_characters_v2'))[0].name), '朝日奈葵');
+      assert.equal(pcErrors.length, 0, pcErrors.join('\n'));
+      await pcPage.close();
+    }
 
     const context = await browser.newContext({ viewport: { width: 412, height: 958 } });
     await context.addInitScript(data => {
@@ -402,7 +442,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.20/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.21/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();

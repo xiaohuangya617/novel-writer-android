@@ -132,12 +132,12 @@ public final class MainActivity extends Activity {
         webView.loadUrl(APP_ORIGIN + "/index.html");
     }
 
-    private String backupName() {
-        return "小说项目_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(new Date()) + ".json";
+    private String backupName(String format) {
+        return "小说项目_" + format + "_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(new Date()) + ".json";
     }
 
     private void exportProject(String json) {
-        exportFile(json, backupName(), "application/json", "项目存档已导出");
+        exportFile(json, backupName("App"), "application/json", "App 项目存档已导出");
     }
 
     private void exportBookText(String content, String bookName) {
@@ -188,7 +188,7 @@ public final class MainActivity extends Activity {
         startActivityForResult(intent, IMPORT_FILE);
     }
 
-    private void shareProject(String json) {
+    private void shareProject(String json, String format) {
         files.execute(() -> { try {
             File folder = new File(getCacheDir(), "shared");
             if (!folder.exists() && !folder.mkdirs()) throw new IllegalStateException("无法建立分享目录");
@@ -196,7 +196,7 @@ public final class MainActivity extends Activity {
             if (oldFiles != null) for (File old : oldFiles) {
                 if (old.isFile() && old.lastModified() < System.currentTimeMillis() - 86400000L) old.delete();
             }
-            File file = new File(folder, backupName().replace(".json", "_" + System.nanoTime() + ".json"));
+            File file = new File(folder, backupName(format).replace(".json", "_" + System.nanoTime() + ".json"));
             try (FileOutputStream stream = new FileOutputStream(file)) {
                 stream.write(json.getBytes(StandardCharsets.UTF_8));
             }
@@ -204,7 +204,7 @@ public final class MainActivity extends Activity {
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("application/json");
             intent.putExtra(Intent.EXTRA_STREAM, uri);
-            intent.setClipData(ClipData.newRawUri("小说项目存档", uri));
+            intent.setClipData(ClipData.newRawUri("小说项目存档（" + format + "）", uri));
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             runOnUiThread(() -> {
                 try {
@@ -219,11 +219,12 @@ public final class MainActivity extends Activity {
     }
 
     private void installUpdate() {
-        File apk = updater.downloadedFile();
-        if (apk == null || !apk.isFile()) {
-            updateMessage("downloadMissing", "更新包不存在，请重新下载");
-            return;
-        }
+        updater.readyToInstall(apk -> runOnUiThread(() -> {
+            if (!isDestroyed() && !isFinishing()) launchInstaller(apk);
+        }));
+    }
+
+    private void launchInstaller(File apk) {
         try {
             if (!getPackageManager().canRequestPackageInstalls()) {
                 Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -380,6 +381,7 @@ public final class MainActivity extends Activity {
             catch (Exception error) { return "未知"; }
         }
         @JavascriptInterface public void checkUpdate() { updater.check(); }
+        @JavascriptInterface public void refreshUpdate() { updater.refresh(); }
         @JavascriptInterface public void downloadUpdate() { updater.download(); }
         @JavascriptInterface public void cancelUpdateDownload() { updater.cancelDownload(); }
         @JavascriptInterface public void installUpdate() { runOnUiThread(MainActivity.this::installUpdate); }
@@ -397,7 +399,8 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public void acknowledgeRequest(String id) { requests.acknowledge(id); }
         @JavascriptInterface public void exportProject(String json) { runOnUiThread(() -> MainActivity.this.exportProject(json)); }
         @JavascriptInterface public void exportBookText(String content, String name) { runOnUiThread(() -> MainActivity.this.exportBookText(content, name)); }
-        @JavascriptInterface public void shareProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json)); }
+        @JavascriptInterface public void shareProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json, "App")); }
+        @JavascriptInterface public void shareHtmlProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json, "HTML")); }
         @JavascriptInterface public void chooseProject() { runOnUiThread(MainActivity.this::chooseProject); }
     }
 }

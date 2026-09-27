@@ -1,24 +1,30 @@
 package com.novelwriter.mobile;
 
+import android.app.DownloadManager;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
-import java.util.Locale;
 import java.util.Arrays;
-import java.util.concurrent.ExecutorService;
+import java.util.Locale;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 final class UpdateManager {
@@ -27,22 +33,111 @@ final class UpdateManager {
     private static final long MAX_APK_BYTES = 150L * 1024 * 1024;
     private final Context context;
     private final Consumer<String> callback;
-    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final DownloadManager downloads;
+    private final SharedPreferences prefs;
+    private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
+    private final Object lock = new Object();
     private volatile Release candidate;
-    private volatile File downloaded;
-    private volatile boolean cancelDownload;
+    private volatile long downloadId;
+    private volatile long verifiedId = -1;
+    private volatile int lastPercent = -1;
 
     UpdateManager(Context context, Consumer<String> callback) {
         this.context = context.getApplicationContext();
         this.callback = callback;
+        downloads = (DownloadManager) this.context.getSystemService(Context.DOWNLOAD_SERVICE);
+        prefs = this.context.getSharedPreferences("update_download_v1", Context.MODE_PRIVATE);
+        candidate = Release.fromJson(prefs.getString("release", null));
+        downloadId = prefs.getLong("downloadId", -1);
+        worker.scheduleWithFixedDelay(() -> {
+            if (downloadId >= 0 && verifiedId != downloadId) refreshNow();
+        }, 1, 1, TimeUnit.SECONDS);
+    }
+
+    void refresh() { worker.execute(this::refreshNow); }
+
+    private void refreshNow() {
+        long id = downloadId;
+        Release release = candidate;
+        if (release != null) {
+            try {
+                PackageInfo installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+                if (compareVersions(release.version, installed.versionName) <= 0) {
+                    synchronized (lock) {
+                        if (downloadId >= 0) downloads.remove(downloadId);
+                        downloadId = -1;
+                        verifiedId = -1;
+                        candidate = null;
+                        prefs.edit().remove("downloadId").remove("release").commit();
+                    }
+                    event("current", "已是最新正式版", null);
+                    return;
+                }
+            } catch (Exception error) {
+                event("error", "无法读取当前应用版本", null);
+                return;
+            }
+        }
+        if (id >= 0 && release == null) {
+            synchronized (lock) {
+                if (downloadId == id) {
+                    downloadId = -1;
+                    prefs.edit().remove("downloadId").commit();
+                    downloads.remove(id);
+                }
+            }
+            event("error", "更新信息失效，请重新检查更新", null);
+            return;
+        }
+        if (id < 0 || release == null) {
+            if (release != null) available(release, null);
+            return;
+        }
+        try (Cursor result = downloads.query(new DownloadManager.Query().setFilterById(id))) {
+            if (result == null || !result.moveToFirst()) {
+                failedDownload(id, "更新下载记录已失效，请重新下载");
+                return;
+            }
+            int status = result.getInt(result.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                if (verifiedId == id) {
+                    event("downloaded", "下载完成，可以安装", null);
+                    return;
+                }
+                try {
+                    verifyFile(updateFile(release), release);
+                    if (downloadId != id) return;
+                    verifiedId = id;
+                    event("downloaded", "下载完成，可以安装", null);
+                } catch (Exception error) {
+                    failedDownload(id, "更新包校验失败，请重新下载");
+                }
+            } else if (status == DownloadManager.STATUS_FAILED) {
+                failedDownload(id, "下载失败，请重新下载");
+            } else {
+                long received = result.getLong(result.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                int percent = (int) Math.min(99, Math.max(0, received * 100 / release.size));
+                if (percent != lastPercent) {
+                    lastPercent = percent;
+                    JSONObject details = new JSONObject();
+                    details.put("percent", percent);
+                    details.put("version", release.version);
+                    event("progress", null, details);
+                }
+            }
+        } catch (Exception error) {
+            event("error", "无法读取下载状态，请稍后重试", null);
+        }
     }
 
     void check() {
         worker.execute(() -> {
+            if (downloadId >= 0) {
+                refreshNow();
+                return;
+            }
             try {
-                candidate = null;
-                downloaded = null;
-                HttpURLConnection connection = connect(RELEASE_API, false);
+                HttpURLConnection connection = connect(RELEASE_API);
                 JSONObject data;
                 try (InputStream stream = connection.getInputStream()) {
                     data = new JSONObject(readSmall(stream));
@@ -51,9 +146,13 @@ final class UpdateManager {
                 }
                 if (data.optBoolean("draft") || data.optBoolean("prerelease")) throw new IllegalStateException("暂无正式发布版本");
                 String version = data.optString("tag_name").replaceFirst("^[vV]", "");
+                if (!version.matches("[0-9]+(\\.[0-9]+)+")) throw new IllegalStateException("发布版本号无效");
                 PackageInfo installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
                 if (compareVersions(version, installed.versionName) <= 0) {
-                    candidate = null;
+                    synchronized (lock) {
+                        candidate = null;
+                        prefs.edit().remove("release").commit();
+                    }
                     event("current", "已是最新正式版", null);
                     return;
                 }
@@ -71,12 +170,13 @@ final class UpdateManager {
                     break;
                 }
                 if (found == null) throw new IllegalStateException("正式版缺少可校验的 APK，请稍后再试");
-                candidate = found;
-                JSONObject details = new JSONObject();
-                details.put("version", found.version);
-                details.put("notes", found.notes.length() > 3000 ? found.notes.substring(0, 3000) + "…" : found.notes);
-                details.put("sizeMb", Math.round(found.size * 10.0 / 1048576) / 10.0);
-                event("available", null, details);
+                synchronized (lock) {
+                    if (!prefs.edit().putString("release", found.toJson().toString()).commit()) {
+                        throw new IllegalStateException("无法保存更新信息");
+                    }
+                    candidate = found;
+                }
+                available(found, null);
             } catch (Exception error) {
                 event("error", error.getMessage() == null ? "检查更新失败" : error.getMessage(), null);
             }
@@ -84,70 +184,127 @@ final class UpdateManager {
     }
 
     void download() {
-        Release release = candidate;
-        if (release == null) {
-            event("error", "请先检查更新", null);
-            return;
-        }
-        cancelDownload = false;
-        worker.execute(() -> {
-            File temp = null;
+        synchronized (lock) {
+            Release release = candidate;
+            if (release == null) {
+                event("error", "请先检查更新", null);
+                return;
+            }
+            if (downloadId >= 0) {
+                refresh();
+                return;
+            }
             try {
-                File folder = new File(context.getCacheDir(), "updates");
-                if (!folder.exists() && !folder.mkdirs()) throw new IllegalStateException("无法创建更新目录");
-                temp = File.createTempFile("download-", ".apk", folder);
-                HttpURLConnection connection = connect(release.url, true);
-                MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                long received = 0;
-                int lastPercent = -1;
-                try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(temp)) {
-                    byte[] buffer = new byte[32768];
-                    int count;
-                    while ((count = input.read(buffer)) != -1) {
-                        if (cancelDownload) throw new InterruptedException("下载已取消");
-                        received += count;
-                        if (received > MAX_APK_BYTES || received > release.size) throw new IllegalStateException("更新包大小不符");
-                        digest.update(buffer, 0, count);
-                        output.write(buffer, 0, count);
-                        int percent = (int) (received * 100 / release.size);
-                        if (percent >= lastPercent + 5) {
-                            lastPercent = percent;
-                            JSONObject progress = new JSONObject();
-                            progress.put("percent", percent);
-                            event("progress", null, progress);
-                        }
-                    }
-                } finally {
-                    connection.disconnect();
+                File target = updateFile(release);
+                File folder = target.getParentFile();
+                if (folder == null || (!folder.isDirectory() && !folder.mkdirs())) {
+                    throw new IllegalStateException("无法创建更新目录");
                 }
-                if (cancelDownload) throw new InterruptedException("下载已取消");
-                if (received != release.size || !hex(digest.digest()).equalsIgnoreCase(release.sha256)) {
-                    throw new IllegalStateException("更新包校验失败，请重新下载");
+                if (target.exists() && !target.delete()) throw new IllegalStateException("无法清理旧更新包");
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(release.url));
+                request.setTitle("小说生成器 " + release.version);
+                request.setMimeType("application/vnd.android.package-archive");
+                request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS,
+                        "updates/novel-update-" + release.version + ".apk");
+                long id = downloads.enqueue(request);
+                if (id < 0) throw new IllegalStateException("无法开始下载");
+                if (!prefs.edit().putLong("downloadId", id).commit()) {
+                    downloads.remove(id);
+                    throw new IllegalStateException("无法保存下载状态");
                 }
-                verifyApk(temp, release.version);
-                File target = new File(folder, "novel-update.apk");
-                if (target.exists() && !target.delete()) throw new IllegalStateException("无法替换旧更新包");
-                if (!temp.renameTo(target)) throw new IllegalStateException("无法保存更新包");
-                temp = null;
-                downloaded = target;
-                event("downloaded", "下载完成，可以安装", null);
-            } catch (InterruptedException error) {
-                event("available", "下载已取消", null);
+                downloadId = id;
+                verifiedId = -1;
+                lastPercent = -1;
+                refresh();
             } catch (Exception error) {
                 JSONObject details = new JSONObject();
                 try { details.put("canDownload", true); } catch (Exception ignored) { }
-                event("error", error.getMessage() == null ? "下载失败" : error.getMessage(), details);
-            } finally {
-                if (temp != null) temp.delete();
+                event("error", error.getMessage() == null ? "无法开始下载" : error.getMessage(), details);
+            }
+        }
+    }
+
+    void cancelDownload() {
+        synchronized (lock) {
+            long id = downloadId;
+            if (id < 0) {
+                event("error", "没有正在进行的下载", null);
+                return;
+            }
+            downloadId = -1;
+            verifiedId = -1;
+            lastPercent = -1;
+            prefs.edit().remove("downloadId").commit();
+            downloads.remove(id);
+            if (candidate != null) available(candidate, "下载已取消");
+            else event("error", "下载已取消，请重新检查更新", null);
+        }
+    }
+
+    void readyToInstall(Consumer<File> onReady) {
+        worker.execute(() -> {
+            long id = downloadId;
+            Release release = candidate;
+            if (id < 0 || release == null) {
+                event("downloadMissing", "更新包不存在，请重新下载", null);
+                return;
+            }
+            try (Cursor result = downloads.query(new DownloadManager.Query().setFilterById(id))) {
+                if (result == null || !result.moveToFirst() || result.getInt(result.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) != DownloadManager.STATUS_SUCCESSFUL) {
+                    failedDownload(id, "更新包不存在，请重新下载");
+                    return;
+                }
+                File file = updateFile(release);
+                verifyFile(file, release);
+                if (downloadId == id) onReady.accept(file);
+            } catch (Exception error) {
+                failedDownload(id, "更新包校验失败，请重新下载");
             }
         });
     }
 
-    void cancelDownload() { cancelDownload = true; }
+    void shutdown() { worker.shutdownNow(); }
 
-    File downloadedFile() { return downloaded; }
+    private void failedDownload(long id, String message) {
+        synchronized (lock) {
+            if (downloadId != id) return;
+            downloadId = -1;
+            verifiedId = -1;
+            lastPercent = -1;
+            prefs.edit().remove("downloadId").commit();
+            downloads.remove(id);
+            if (candidate != null) available(candidate, message);
+            else event("error", message, null);
+        }
+    }
 
-    void shutdown() { cancelDownload = true; worker.shutdownNow(); }
+    private void available(Release release, String message) {
+        try {
+            JSONObject details = new JSONObject();
+            details.put("version", release.version);
+            details.put("notes", release.notes.length() > 3000 ? release.notes.substring(0, 3000) + "…" : release.notes);
+            details.put("sizeMb", Math.round(release.size * 10.0 / 1048576) / 10.0);
+            event("available", message, details);
+        } catch (Exception ignored) { }
+    }
+
+    private File updateFile(Release release) {
+        File base = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (base == null) throw new IllegalStateException("更新文件目录不可用");
+        return new File(base, "updates/novel-update-" + release.version + ".apk");
+    }
+
+    private void verifyFile(File file, Release release) throws Exception {
+        if (!file.isFile() || file.length() != release.size) throw new IllegalStateException("更新包大小不符");
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream input = new FileInputStream(file)) {
+            byte[] buffer = new byte[32768];
+            int count;
+            while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count);
+        }
+        if (!hex(digest.digest()).equalsIgnoreCase(release.sha256)) throw new IllegalStateException("更新包摘要不符");
+        verifyApk(file, release.version);
+    }
 
     @SuppressWarnings("deprecation")
     private void verifyApk(File apk, String expectedVersion) throws Exception {
@@ -177,34 +334,22 @@ final class UpdateManager {
         } catch (Exception ignored) { }
     }
 
-    private HttpURLConnection connect(String address, boolean asset) throws Exception {
+    private HttpURLConnection connect(String address) throws Exception {
         URL url = new URL(address);
-        for (int redirects = 0; redirects < 6; redirects++) {
-            String host = url.getHost().toLowerCase(Locale.ROOT);
-            boolean trusted = asset ? host.equals("github.com") || host.endsWith(".githubusercontent.com")
-                    : host.equals("api.github.com");
-            if (!"https".equalsIgnoreCase(url.getProtocol()) || !trusted) throw new IllegalStateException("更新地址不可信");
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setInstanceFollowRedirects(false);
-            connection.setConnectTimeout(12000);
-            connection.setReadTimeout(30000);
-            connection.setRequestProperty("User-Agent", "NovelWriter-Android-Updater");
-            if (!asset) connection.setRequestProperty("Accept", "application/vnd.github+json");
-            int status = connection.getResponseCode();
-            if (status == 200) return connection;
-            if (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
-                String location = connection.getHeaderField("Location");
-                connection.disconnect();
-                if (location == null) throw new IllegalStateException("更新地址无效");
-                url = new URL(url, location);
-                continue;
-            }
-            connection.disconnect();
-            if (status == 404) throw new IllegalStateException("暂无正式发布版本");
-            if (status == 403 || status == 429) throw new IllegalStateException("检查次数过多，请稍后再试");
-            throw new IllegalStateException("更新服务暂不可用（" + status + "）");
+        if (!"https".equalsIgnoreCase(url.getProtocol()) || !"api.github.com".equalsIgnoreCase(url.getHost())) {
+            throw new IllegalStateException("更新地址不可信");
         }
-        throw new IllegalStateException("更新地址跳转过多");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setConnectTimeout(12000);
+        connection.setReadTimeout(30000);
+        connection.setRequestProperty("User-Agent", "NovelWriter-Android-Updater");
+        connection.setRequestProperty("Accept", "application/vnd.github+json");
+        int status = connection.getResponseCode();
+        if (status == 200) return connection;
+        connection.disconnect();
+        if (status == 404) throw new IllegalStateException("暂无正式发布版本");
+        if (status == 403 || status == 429) throw new IllegalStateException("检查次数过多，请稍后再试");
+        throw new IllegalStateException("更新服务暂不可用（" + status + "）");
     }
 
     private static String readSmall(InputStream stream) throws Exception {
@@ -253,6 +398,31 @@ final class UpdateManager {
             this.url = url;
             this.sha256 = sha256;
             this.size = size;
+        }
+
+        JSONObject toJson() throws Exception {
+            JSONObject data = new JSONObject();
+            data.put("version", version);
+            data.put("notes", notes);
+            data.put("url", url);
+            data.put("sha256", sha256);
+            data.put("size", size);
+            return data;
+        }
+
+        static Release fromJson(String raw) {
+            try {
+                JSONObject data = new JSONObject(raw);
+                String version = data.getString("version");
+                String url = data.getString("url");
+                String sha256 = data.getString("sha256");
+                long size = data.getLong("size");
+                if (!version.matches("[0-9]+(\\.[0-9]+)+") || !url.startsWith(ASSET_PREFIX)
+                        || !sha256.matches("[0-9a-fA-F]{64}") || size <= 0 || size > MAX_APK_BYTES) return null;
+                return new Release(version, data.optString("notes"), url, sha256, size);
+            } catch (Exception ignored) {
+                return null;
+            }
         }
     }
 }
