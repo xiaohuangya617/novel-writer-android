@@ -10,6 +10,8 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -39,12 +41,14 @@ final class UpdateManager {
     private final DownloadManager downloads;
     private final SharedPreferences prefs;
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Object lock = new Object();
     private volatile Release candidate;
     private volatile long downloadId;
     private volatile long verifiedId = -1;
     private volatile int lastPercent = -1;
     private volatile String lastProgressMessage;
+    private volatile long eventGeneration;
 
     UpdateManager(Context context, Consumer<String> callback) {
         this.context = context.getApplicationContext();
@@ -105,6 +109,7 @@ final class UpdateManager {
             int status = result.getInt(result.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
             if (status == DownloadManager.STATUS_SUCCESSFUL) {
                 if (verifiedId == id) {
+                    if (downloadId != id) return;
                     event("downloaded", "下载完成，可以安装", null);
                     return;
                 }
@@ -124,6 +129,7 @@ final class UpdateManager {
                 String message = status == DownloadManager.STATUS_PAUSED ? pausedDownloadMessage(result)
                         : status == DownloadManager.STATUS_PENDING ? "等待系统开始下载" : null;
                 if (percent != lastPercent || !java.util.Objects.equals(message, lastProgressMessage)) {
+                    if (downloadId != id) return;
                     lastPercent = percent;
                     lastProgressMessage = message;
                     JSONObject details = new JSONObject();
@@ -133,7 +139,11 @@ final class UpdateManager {
                 }
             }
         } catch (Exception error) {
-            event("error", "无法读取下载状态，请稍后重试", null);
+            if (downloadId == id) {
+                JSONObject details = new JSONObject();
+                try { details.put("canCancel", true); } catch (Exception ignored) { }
+                event("error", "无法读取下载状态，可以取消下载后重试", details);
+            }
         }
     }
 
@@ -144,6 +154,11 @@ final class UpdateManager {
                 return;
             }
             try {
+                long retryAt = prefs.getLong("retryCheckAt", 0);
+                if (retryAt > System.currentTimeMillis()) {
+                    throw new IllegalStateException(rateLimitMessage(retryAt, null));
+                }
+                if (retryAt != 0) prefs.edit().remove("retryCheckAt").apply();
                 HttpURLConnection connection = connect(RELEASE_API);
                 JSONObject data;
                 try (InputStream stream = connection.getInputStream()) {
@@ -201,7 +216,9 @@ final class UpdateManager {
         });
     }
 
-    void download() {
+    void download() { worker.execute(this::downloadNow); }
+
+    private void downloadNow() {
         synchronized (lock) {
             Release release = candidate;
             if (release == null) {
@@ -243,19 +260,29 @@ final class UpdateManager {
         }
     }
 
-    void cancelDownload() {
+    void cancelDownload() { worker.execute(this::cancelDownloadNow); }
+
+    private void cancelDownloadNow() {
         synchronized (lock) {
             long id = downloadId;
             if (id < 0) {
                 event("error", "没有正在进行的下载", null);
                 return;
             }
+            try {
+                downloads.remove(id);
+            } catch (Exception error) {
+                JSONObject details = new JSONObject();
+                try { details.put("canCancel", true); } catch (Exception ignored) { }
+                event("cancelError", "取消下载失败，请稍后重试", details);
+                return;
+            }
             downloadId = -1;
+            eventGeneration++;
             verifiedId = -1;
             lastPercent = -1;
             lastProgressMessage = null;
             prefs.edit().remove("downloadId").commit();
-            downloads.remove(id);
             if (candidate != null) available(candidate, "下载已取消");
             else event("error", "下载已取消，请重新检查更新", null);
         }
@@ -391,7 +418,11 @@ final class UpdateManager {
             JSONObject result = details == null ? new JSONObject() : details;
             result.put("status", status);
             if (message != null) result.put("message", message);
-            callback.accept(result.toString());
+            long generation = eventGeneration;
+            String payload = result.toString();
+            mainHandler.post(() -> {
+                if (generation == eventGeneration) callback.accept(payload);
+            });
         } catch (Exception ignored) { }
     }
 
@@ -407,15 +438,33 @@ final class UpdateManager {
         connection.setRequestProperty("Accept", "application/vnd.github+json");
         int status = connection.getResponseCode();
         if (status == 200) return connection;
-        boolean rateLimited = "0".equals(connection.getHeaderField("X-RateLimit-Remaining"))
-                || connection.getHeaderField("Retry-After") != null;
+        String remaining = connection.getHeaderField("X-RateLimit-Remaining");
+        String retryAfter = connection.getHeaderField("Retry-After");
+        String reset = connection.getHeaderField("X-RateLimit-Reset");
+        boolean rateLimited = "0".equals(remaining) || retryAfter != null;
         connection.disconnect();
         if (status == 404) throw new IllegalStateException("暂无正式发布版本");
         if (status == 429 || status == 403 && rateLimited) {
-            throw new IllegalStateException("GitHub 暂时限制检查请求（HTTP " + status + "），请稍后再试");
+            long now = System.currentTimeMillis();
+            long retryAt = now + 60_000;
+            try {
+                if (retryAfter != null) retryAt = now + Math.min(Long.parseLong(retryAfter), 86_400) * 1000;
+                else if ("0".equals(remaining) && reset != null) retryAt = Long.parseLong(reset) * 1000;
+            } catch (NumberFormatException ignored) { }
+            if (retryAt <= now) retryAt = now + 60_000;
+            retryAt = Math.min(retryAt, now + 86_400_000);
+            prefs.edit().putLong("retryCheckAt", retryAt).apply();
+            throw new IllegalStateException(rateLimitMessage(retryAt, status));
         }
         if (status == 403) throw new IllegalStateException("GitHub 拒绝检查请求（HTTP 403），请检查当前网络或科学上网后重试");
         throw new IllegalStateException("更新服务暂不可用（" + status + "）");
+    }
+
+    private static String rateLimitMessage(long retryAt, Integer status) {
+        long seconds = Math.max(1, (retryAt - System.currentTimeMillis() + 999) / 1000);
+        String wait = seconds < 60 ? seconds + " 秒" : (seconds + 59) / 60 + " 分钟";
+        return "GitHub 暂时限制检查请求" + (status == null ? "" : "（HTTP " + status + "）")
+                + "，约 " + wait + "后可重试；共享网络或代理出口也会共用额度";
     }
 
     private static String readSmall(InputStream stream) throws Exception {
