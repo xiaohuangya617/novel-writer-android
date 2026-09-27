@@ -1,6 +1,7 @@
 package com.novelwriter.mobile;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.os.Bundle;
@@ -15,6 +16,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
 import androidx.core.graphics.Insets;
 import androidx.core.content.FileProvider;
@@ -98,7 +100,17 @@ public final class MainActivity extends Activity {
             }
 
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return !APP_ORIGIN.equals(request.getUrl().getScheme() + "://" + request.getUrl().getHost());
+                Uri uri = request.getUrl();
+                if (APP_ORIGIN.equals(uri.getScheme() + "://" + uri.getHost())) return false;
+                if ("https".equals(uri.getScheme()) && "github.com".equals(uri.getHost())
+                        && "/xiaohuangya617/novel-writer-android".equals(uri.getPath())) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE));
+                    } catch (ActivityNotFoundException error) {
+                        Toast.makeText(MainActivity.this, "没有可用的浏览器", Toast.LENGTH_SHORT).show();
+                    }
+                }
+                return true;
             }
         });
         FrameLayout root = new FrameLayout(this);
