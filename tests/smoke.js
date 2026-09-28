@@ -38,7 +38,19 @@ const summaryTask = core.NovelCore.summaryRequest(book, { content: '正文' }, {
 assert.ok(summaryTask.includes('出场人物、时间、地点') && summaryTask.includes('身体状态') && summaryTask.includes('不得重复历史经历'));
 const branch = core.NovelCore.branchRequest({ ...book, plotSet: '主线', chapters: [{ title: '第1章', summary: '最新进展' }] }, { model: 'test', temperature: '1.0' });
 assert.ok(branch.messages[1].content.includes(growth));
-assert.ok(branch.messages[1].content.indexOf('【主线大纲】') < branch.messages[1].content.indexOf('【角色成长经历'));
+assert.ok(branch.messages[1].content.includes('【长期提示】长期提示'));
+assert.ok(branch.messages[1].content.includes('【行文】行文'));
+assert.ok(branch.messages[1].content.indexOf('【主线大纲】') < branch.messages[1].content.indexOf('【前文信息】'));
+assert.ok(branch.messages[1].content.indexOf('【前文信息】') < branch.messages[1].content.indexOf('【角色成长经历'));
+const xBranch = core.NovelCore.branchRequest({ ...book, worldview: '现代都市，遵守现实社会规则', plotSet: '主线', chapters: [{ title: '第1章', summary: '最新进展' }] }, { model: 'test', temperature: '1.0' }, [], [], ['泛白'], 'X');
+const hBranch = core.NovelCore.branchRequest({ ...book, plotSet: '主线', chapters: [{ title: '第1章', summary: '最新进展' }] }, { model: 'test', temperature: '1.0' }, [], [], [], 'H');
+assert.equal(xBranch.messages[0].content, hBranch.messages[0].content);
+assert.ok(xBranch.messages[0].content.includes('信息揭示') && xBranch.messages[0].content.includes('不得突然加入外星人'));
+assert.ok(xBranch.messages[1].content.startsWith('本次策略组：X策略'));
+assert.ok(xBranch.messages[1].content.includes('绝对禁止出现“泛白”'));
+assert.ok(hBranch.messages[1].content.startsWith('本次策略组：H策略'));
+assert.ok(hBranch.messages[1].content.includes('固定顺序：①主动攻略 ②被动转折 ③女主视角'));
+assert.ok(core.NovelCore.normalizeBranchStrategy('invalid') === 'X');
 const costumeBranch = core.NovelCore.branchRequest({ ...book, plotSet: '主线', chapters: [{ title: '第1章', summary: '最新进展' }] }, { model: 'test', temperature: '1.0' }, [], costumes);
 assert.ok(costumeBranch.messages[1].content.includes('深色雨衣'));
 assert.equal(core.NovelCore.titleFrom('# 第一章\n\n正文', '备用标题', 101), '第101章');
@@ -427,7 +439,7 @@ const saved = {
     await page.goto('https://app.local/index.html');
     assert.deepEqual(await page.evaluate(() => [state.readerFontSize, state.messageFontSize]), [20, 16]);
     await page.locator('#menuButton').click();
-    assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'forbiddenWords', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'fontSize', 'messageFontSize', 'help', 'version']);
+    assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'forbiddenWords', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'strategy', 'fontSize', 'messageFontSize', 'help', 'version']);
     assert.equal((await page.locator('.drawer-item[data-sheet="api"]').innerText()).trim(), 'AI设置');
     assert.equal((await page.locator('.drawer-item[data-sheet="globalRoles"]').innerText()).trim(), '素材角色库');
     assert.equal(await page.locator('#continueButton span').innerText(), '走向');
@@ -437,9 +449,24 @@ const saved = {
     await page.locator('#forbiddenWord').fill('泛白');
     await page.locator('#forbiddenWordForm button[type="submit"]').click();
     assert.deepEqual(await page.evaluate(() => state.globalForbiddenWords), ['泛白']);
-    assert.deepEqual(await page.evaluate(() => backupObject().globalForbiddenWords), ['泛白']);
-    assert.deepEqual(await page.evaluate(() => htmlBackupObject().globalForbiddenWords), ['泛白']);
+    await page.locator('#forbiddenWord').fill('石子，泛白, 湖中');
+    await page.locator('#forbiddenWordForm button[type="submit"]').click();
+    assert.deepEqual(await page.evaluate(() => state.globalForbiddenWords), ['泛白']);
+    await page.locator('#forbiddenWord').fill('石子， 湖中');
+    await page.locator('#forbiddenWordForm button[type="submit"]').click();
+    assert.deepEqual(await page.evaluate(() => state.globalForbiddenWords), ['泛白', '石子', '湖中']);
+    assert.equal(await page.locator('.forbidden-row').count(), 3);
+    assert.ok((await page.locator('.forbidden-row').first().evaluate(row => Math.round(row.getBoundingClientRect().height))) <= 46);
+    assert.deepEqual(await page.evaluate(() => backupObject().globalForbiddenWords), ['泛白', '石子', '湖中']);
+    assert.deepEqual(await page.evaluate(() => htmlBackupObject().globalForbiddenWords), ['泛白', '石子', '湖中']);
     await page.locator('#closeSheet').click();
+    await page.locator('#menuButton').click();
+    await page.locator('[data-sheet="strategy"]').click();
+    assert.equal(await page.locator('#sheetTitle').innerText(), '走向策略');
+    assert.equal(await page.locator('[data-strategy="X"]').getAttribute('aria-pressed'), 'true');
+    await page.locator('[data-strategy="H"]').click();
+    assert.equal(await page.evaluate(() => state.branchStrategy), 'H');
+    assert.equal(await page.evaluate(() => backupObject().branchStrategy), 'H');
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="help"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '使用说明');
@@ -574,7 +601,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.28/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.29/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();
@@ -592,7 +619,8 @@ const saved = {
     await page.evaluate(outline => {
       const current = book();
       current.pendingDirections = Array.from({ length: 3 }, (_, index) => ({ title: `走向${index + 1}`, outline }));
-      showDirectionChoices(current);
+      current.pendingDirectionStrategy = 'X';
+      showDirectionChoicesV2(current);
     }, fullDirection);
     const choices = await page.locator('.choice').evaluateAll(items => items.map(item => ({
       height: item.getBoundingClientRect().height,
@@ -603,6 +631,7 @@ const saved = {
     assert.ok(choices.every(item => item.clamp === '5' && item.overflow));
     await page.locator('.choice').first().click();
     assert.ok((await page.locator('#instruction').inputValue()).includes('走向细节12'));
+    assert.match(await page.locator('#instruction').inputValue(), /走向策略：X策略/);
 
     const latestGrowth = Array.from({ length: 12 }, (_, index) => `最新变化${index + 1}`).join('\n');
     await page.evaluate(text => {

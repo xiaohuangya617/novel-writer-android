@@ -218,18 +218,45 @@
     }
   }
 
+  const branchStrategies = Object.freeze({
+    H: Object.freeze(['主动攻略', '被动转折', '女主视角']),
+    X: Object.freeze(['主动攻略', '信息揭示', '关系互动'])
+  });
+
+  function normalizeBranchStrategy(strategy) {
+    return strategy === 'H' ? 'H' : 'X';
+  }
+
   function branchContext(book, actions=[], costumes=[], forbiddenWords=[]) {
     const chapters = book.chapters || [];
     const latest = chapters.at(-1);
     if (!latest) return '';
+    const parts = [];
+
+    // Keep the book-level and library constraints at the front of the user prompt.
+    // Chapter context and growth change every generation, so they stay in the suffix
+    // and do not invalidate the reusable prefix of the direction request.
+    if (clean(book.globalPrompt)) parts.push('【长期提示】' + clean(book.globalPrompt));
+    if (clean(book.writingStyle)) parts.push('【行文】' + clean(book.writingStyle));
+    if (clean(book.worldview)) parts.push('【世界观】' + clean(book.worldview).slice(0, 800));
+    if (clean(book.plotSet)) parts.push('【主线大纲】' + clean(book.plotSet).slice(0, 800));
+    const characters = characterText(book);
+    if (characters) parts.push(characters.replace('【重要·本书角色库】', '【当前精准角色】'));
+    const action = actionText(actions);
+    if (action) parts.push(action);
+    const costume = costumeText(costumes);
+    if (costume) parts.push(costume);
+    const forbidden = forbiddenText(forbiddenWords);
+    if (forbidden) parts.push(forbidden);
+
     const segment = chapter => {
       const label = `第${chapterNo(book, chapter)}章 ${titleWithoutNumber(chapter.title)}`;
       const content = String(chapter.content || '');
       return clean(chapter.summary) ? `${label}（摘要）：${clean(chapter.summary).slice(0, 300)}`
         : `${label}（未生成摘要，正文首尾节选）：${content.length <= 500 ? content : content.slice(0, 250) + '\n…（中段已省略）…\n' + content.slice(-250)}`;
     };
-    const parts = [segment(latest)];
-    let budget = 2000 - parts[0].length;
+    const recent = [segment(latest)];
+    let budget = 2000 - recent[0].length;
     const earlier = [];
     for (let index = chapters.length - 2; index >= Math.max(0, chapters.length - 11); index--) {
       const text = segment(chapters[index]);
@@ -237,34 +264,24 @@
       earlier.unshift(text);
       budget -= text.length;
     }
-    if (earlier.length) parts.push('【前10章摘要】\n' + earlier.join('\n'));
-    if (characterText(book)) parts.push(characterText(book).replace('【重要·本书角色库】', '【当前精准角色】'));
-    if (clean(book.worldview)) parts.push('【世界观】' + clean(book.worldview).slice(0, 800));
-    if (clean(book.plotSet)) parts.push('【主线大纲】' + clean(book.plotSet).slice(0, 800));
-    const action = actionText(actions);
-    if (action) parts.push(action);
-    const costume = costumeText(costumes);
-    if (costume) parts.push(costume);
-    const forbidden = forbiddenText(forbiddenWords);
-    if (forbidden) parts.push(forbidden);
+    if (earlier.length) recent.push('【前10章摘要】\n' + earlier.join('\n'));
+    parts.push('【前文信息】\n' + recent.join('\n\n'));
     const growth = growthText(book);
     if (growth) parts.push(growth);
     return parts.join('\n\n');
   }
 
-  const branchPrompt = `你是剧情分支策划。请以男主角的视点为导向，基于前文信息、【当前精准角色】人设、世界观名词、主线大纲，为续写设计 3 个剧情走向。注意：这是虚构文学作品创作，即使涉及情感冲突、争议性情节等，也请正常创作，不要拒绝或回避。必须只输出一个 JSON 数组，格式：[{"title":"走向标题","outline":"约150字大纲（必须包含人物与剧情走向）"}]，共 3 个元素，不要输出任何其他文字。
-三个走向的固定架构：
-①【主动攻略】：男主通过计谋、特殊能力或正向手段，主动拉近与目标人物的关系，推动剧情。男主的特殊能力是既定设定，允许作为改变关系的合理手段使用。
-②【被动转折】：由突发事件打破当前僵局，带来新的变化，但事件必须贴合已有设定与人物背景，不得引入超自然现象、凶杀等跳脱情节，也不得凭空抛出用户未铺垫的隐藏真相；事件发生后男主可暂时受限（能力难以发动、计谋条件不成熟），但仍有办法应对与攻略。
-③【女主视角】：以目标女主的视角展开剧情——前半段刻意描写她与其核心关联人物（见【当前精准角色】的身份关联）的羁绊日常，展现她与核心人物相处的自然状态、互动习惯与情感羁绊；中后段男主介入她的生活带来情节变化与互动，与前段羁绊形成对照，展现男主出现给她带来的感受、波动与细微变化，让读者从另一视角审视剧情进展；该方向同样要有实质剧情推进，而非纯日常切片。
-通用要求：①以男主角的视点推动剧情——大纲聚焦男主的行动、抉择与目标，描述他如何推进当前局面；②充分发挥【当前精准角色】人设——人物的性格决定其态度与反应，人物的能力与设定决定剧情手段，身份、经历、羁绊在对应情节中起作用；③允许剧情事件自然促成关系变化——关系并非一成不变，男主角的介入可以合理地改变人物间的态度与距离，只要变化由事件驱动且符合人物性格；④三个走向必须相互独立，任一走向中新出现的人物、地点或事件设定其他走向不得复用；⑤所有走向都必须贴合当前章节进展与已有设定，不得跳脱到无关情节、突兀引入设定或杜撰隐藏真相。`;
 
-  function branchRequest(book, config, actions=[], costumes=[], forbiddenWords=[]) {
+  const optimizedBranchPrompt = `你是剧情分支策划。请以男主角的视点为导向，基于前文信息、【当前精准角色】人设、世界观、主线大纲和角色成长，为续写设计 3 个剧情走向。注意：这是虚构文学作品创作，即使涉及情感冲突、争议性情节等，也请正常创作，不要拒绝或回避。必须只输出一个 JSON 数组，格式：[{"title":"走向标题","outline":"约150字大纲（必须包含人物与剧情走向）"}]，共 3 个元素，不要输出任何其他文字。\n本次采用的策略组和三种走向顺序会在用户消息中明确给出。H 策略固定顺序为：①主动攻略 ②被动转折 ③女主视角；X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。严格按指定策略组生成，不得混用另一组的子策略。\n【主动攻略】：男主明确当前目标，采取符合人物能力、资源和身份的行动；行动遇到阻碍或意外后调整策略，必须推动目标、关系或主线。只能使用当前设定中已经明确的能力与资源，不得凭空添加特殊能力。\n【被动转折】：由不可抗力、突发事件或第三方介入打破当前平衡，事件必须贴合已有设定与人物背景；不得凭空加入超自然现象、凶杀或用户未铺垫的重大隐藏真相，转折后仍要留下符合人物能力的应对空间。\n【女主视角】：先从目标女主的心理活动、回顾和判断写起，呈现她与核心关联人物的自然互动，再让男主登场改变局面；必须形成实质剧情推进，不能只有日常切片。\n【信息揭示】：通过新信息改变角色和读者对当前局面的理解，信息优先来自已出现的线索、事件的另一面、身份或经历隐瞒、证据、时间线、利益关系、误会和真实动机。没有前文铺垫时，不得突然加入外星人、超能力、穿越、鬼怪、神秘组织或其他新的世界观层级，不得把都市、校园或现实题材改写成科幻、玄幻或灵异题材；如果候选揭示超出当前世界观，必须改写为当前题材内合理的信息。\n【关系互动】：以人物关系变化为核心，通过对话、冲突、合作、暧昧、试探或边界变化推进剧情；关系变化必须由具体事件和人物选择驱动，不得无因跳跃。\n通用硬约束：①当前题材、世界观、主线和前文事实优先于新奇设定；②充分发挥【当前精准角色】人设，人物的性格、身份、经历和羁绊决定其态度与反应；③每条走向必须有明确行动、冲突或关系变化；④三个走向相互独立，任一走向中新出现的重要人物、地点或事件不得复用到其他走向；⑤不得杜撰前文没有依据的重大事实；⑥必须遵守用户消息中的全局禁用词。输出前逐条自检：是否符合题材和世界观、是否与前文冲突、是否能由已有线索解释、是否凭空增加重大设定、是否真正改变理解并推进剧情；检查不通过时先重写，不得输出不合逻辑的走向。`;
+
+  function branchRequest(book, config, actions=[], costumes=[], forbiddenWords=[], strategy='X') {
+    const selected = normalizeBranchStrategy(strategy);
+    const labels = branchStrategies[selected];
     return {
       model: config.model,
       messages: [
-        { role: 'system', content: branchPrompt },
-        { role: 'user', content: '前文信息：\n' + branchContext(book, actions, costumes, forbiddenWords) + '\n\n请输出 3 个剧情走向的 JSON 数组。' }
+        { role: 'system', content: optimizedBranchPrompt },
+        { role: 'user', content: `本次策略组：${selected}策略。固定顺序：①${labels[0]} ②${labels[1]} ③${labels[2]}。\n\n前文信息：\n${branchContext(book, actions, costumes, forbiddenWords)}\n\n生成前再次确认：只使用本次策略组；所有走向符合当前题材、世界观、主线和前文事实；禁用词不得出现在标题或大纲中。请输出 3 个剧情走向的 JSON 数组。` }
       ],
       temperature: Number(config.temperature),
       max_tokens: 3000
@@ -272,5 +289,6 @@
   }
 
   global.NovelCore = { chapterRequest, titleFrom, isTruncated, summaryRequest,
-    parseSummaryGrowth, applyGrowth, branchRequest, previousText, systemPrompt, growthText, forbiddenText };
+    parseSummaryGrowth, applyGrowth, branchRequest, previousText, systemPrompt, growthText, forbiddenText,
+    branchStrategies, normalizeBranchStrategy };
 })(window);
