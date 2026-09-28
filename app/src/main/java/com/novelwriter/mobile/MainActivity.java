@@ -140,6 +140,10 @@ public final class MainActivity extends Activity {
         exportFile(json, backupName("App"), "application/json", "App 项目存档已导出");
     }
 
+    private void exportHtmlProject(String json) {
+        exportFile(json, backupName("HTML"), "application/json", "HTML 项目存档已导出");
+    }
+
     private void exportBookText(String content, String bookName) {
         String safeName = bookName.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
         if (safeName.isEmpty()) safeName = "本书";
@@ -398,6 +402,7 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public void replayRequest(String id) { requests.replay(id); }
         @JavascriptInterface public void acknowledgeRequest(String id) { requests.acknowledge(id); }
         @JavascriptInterface public void exportProject(String json) { runOnUiThread(() -> MainActivity.this.exportProject(json)); }
+        @JavascriptInterface public void exportHtmlProject(String json) { runOnUiThread(() -> MainActivity.this.exportHtmlProject(json)); }
         @JavascriptInterface public void exportBookText(String content, String name) { runOnUiThread(() -> MainActivity.this.exportBookText(content, name)); }
         @JavascriptInterface public void shareProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json, "App")); }
         @JavascriptInterface public void shareHtmlProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json, "HTML")); }

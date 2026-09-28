@@ -43,11 +43,19 @@
     }).join('\n');
   }
 
+  function forbiddenText(words) {
+    const entries = [...new Set((words || []).map(word => clean(word)).filter(Boolean))];
+    if (!entries.length) return '';
+    return '【全局禁用词与短语】\n创作时绝对禁止出现以下词语或短语；如需表达相同含义，请改用具体动作、感官或更准确的表达。不要解释这条规则。\n'
+      + entries.map(word => `- 绝对禁止出现“${word}”。如需表达相同含义，请改用具体动作、感官或更准确的表达。`).join('\n');
+  }
+
   function growthText(book) {
     const entries = (book.characters || []).flatMap(person =>
       (person.growth || []).map((item, order) => ({
         name: person.name, id: person.id, no: Number(item.chapNo) || 0, text: item.text, order
-      })).sort((a, b) => a.no - b.no || a.order - b.order).slice(-3));
+      })).sort((a, b) => a.no - b.no || a.order - b.order).slice(-3)
+    );
     if (!entries.length) return '';
     entries.sort((a, b) => a.no - b.no || a.order - b.order);
     const chosen = entries.slice(-15);
@@ -57,7 +65,7 @@
       + chosen.map((item, index) => `第${item.no || '?'}章：${item.name}——${item.text}${last.get(item.id) === index ? ' ⭐当前状态' : ''}`).join('\n');
   }
 
-  function systemPrompt(book, actions, costumes=[]) {
+  function systemPrompt(book, actions, costumes=[], forbiddenWords=[]) {
     const parts = [];
     if (clean(book.globalPrompt)) parts.push(clean(book.globalPrompt));
     if (clean(book.writingStyle)) parts.push('【行文】' + clean(book.writingStyle));
@@ -67,6 +75,8 @@
     if (action) parts.push(action);
     const costume = costumeText(costumes);
     if (costume) parts.push(costume);
+    const forbidden = forbiddenText(forbiddenWords);
+    if (forbidden) parts.push(forbidden);
     if (clean(book.worldview)) parts.push('【世界观】' + clean(book.worldview));
     if (clean(book.plotSet)) parts.push('【情节】' + clean(book.plotSet));
     const growth = growthText(book);
@@ -97,8 +107,12 @@
       + (picked.length < selected.length ? '\n…（前文较早章节因总长限制已省略，最近章节已保留）' : '');
   }
 
-  function chapterRequest(book, actions, costumes, instruction, config, continuation) {
-    const intro = actions?.length ? '请严格按照【必须严格遵守的动作描写规则】中的定义来描写动作。\n\n' : '';
+  function chapterRequest(book, actions, costumes, instruction, config, continuation, forbiddenWords=[]) {
+    const reminders = [
+      actions?.length && '请严格按照【必须严格遵守的动作描写规则】中的定义来描写动作。',
+      costumes?.length && '请严格按照【必须保持一致的服装与外观规则】中的定义来描写服装。'
+    ].filter(Boolean);
+    const intro = reminders.length ? reminders.join('\n\n') + '\n\n' : '';
     const previous = previousText(book, config.ctxChapters);
     const user = continuation
       ? `${intro}${instruction}\n\n【前文】\n${previous}`
@@ -106,7 +120,7 @@
     const request = {
       model: config.model,
       messages: [
-        { role: 'system', content: systemPrompt(book, actions, costumes) },
+        { role: 'system', content: systemPrompt(book, actions, costumes, forbiddenWords) },
         { role: 'user', content: user }
       ],
       temperature: Number(config.temperature),
@@ -140,17 +154,17 @@
       || (Number(result.usage?.completion_tokens) >= Number(maxTokens) * .98);
   }
 
-  function summaryRequest(book, chapter, config, actions=[], costumes=[]) {
+  function summaryRequest(book, chapter, config, actions=[], costumes=[], forbiddenWords=[]) {
     const content = String(chapter.content || '');
     const middle = Math.floor(content.length / 2);
     const excerpt = content.length <= 3000 ? content
       : content.slice(0, 1000) + '\n……（中略）……\n'
         + content.slice(middle - 500, middle + 500) + '\n……（中略）……\n'
         + content.slice(-1000);
-    const task = '【任务】\n1. 输出【摘要】标记，后接本章 200 字以内的摘要，明确出场人物、时间、地点、事件和关键细节。\n'
-      + '2. 输出【成长】标记，后接本章角色显著变化，每行格式：角色名——经历文本。仅记录身体、心理、重大关系、能力或身份变化；日常活动、普通对话、纯出场不记录；不得重复历史经历。没有变化则【成长】后留空。\n\n';
+    const task = '【任务】\n1. 输出【摘要】标记，后接本章 200 字以内的摘要（必须明确指出出场人物、时间、地点，并包含事件和关键细节；不分段，直接输出摘要正文）。\n'
+      + '2. 输出【成长】标记，后接本章角色的经历变化（每行一条，格式：角色名——经历文本）。输出规则：仅当角色发生以下显著变化才输出：①身体状态（受伤、康复、疾病、中毒等）；②心理状态（性格转变、剧烈情绪、心理创伤、心结等）；③人际关系重大变化（爱上、恨上、信任、背叛、结盟等）；④能力与身份（学会新能力、失去能力、获得重要道具、身份地位变化）。吃饭、睡觉、日常对话、普通出行等日常行为一律不输出；纯出场不写；仅当本章所有角色都无上述变化时才允许省略此段；只输出本章新增的变化，不得重复历史经历；角色名优先使用完整姓名，也允许使用角色库中的别名或昵称，但必须保证唯一识别（同名角色必须用完整姓名区分）；若创作指令要求补充某章经历，请一并写入并在行首标注章号（格式：第X章：角色名——经历文本）。没有显著变化时，【成长】标记后留空。\n\n';
     const user = task + '【本章正文】\n' + excerpt + '\n\n'
-      + characterText(book) + '\n' + actionText(actions) + '\n' + costumeText(costumes) + '\n' + growthText(book);
+      + characterText(book) + '\n' + actionText(actions) + '\n' + costumeText(costumes) + '\n' + forbiddenText(forbiddenWords) + '\n' + growthText(book);
     return {
       model: config.model,
       messages: [
@@ -204,7 +218,7 @@
     }
   }
 
-  function branchContext(book, actions=[], costumes=[]) {
+  function branchContext(book, actions=[], costumes=[], forbiddenWords=[]) {
     const chapters = book.chapters || [];
     const latest = chapters.at(-1);
     if (!latest) return '';
@@ -231,6 +245,8 @@
     if (action) parts.push(action);
     const costume = costumeText(costumes);
     if (costume) parts.push(costume);
+    const forbidden = forbiddenText(forbiddenWords);
+    if (forbidden) parts.push(forbidden);
     const growth = growthText(book);
     if (growth) parts.push(growth);
     return parts.join('\n\n');
@@ -243,12 +259,12 @@
 ③【女主视角】：以目标女主的视角展开剧情——前半段刻意描写她与其核心关联人物（见【当前精准角色】的身份关联）的羁绊日常，展现她与核心人物相处的自然状态、互动习惯与情感羁绊；中后段男主介入她的生活带来情节变化与互动，与前段羁绊形成对照，展现男主出现给她带来的感受、波动与细微变化，让读者从另一视角审视剧情进展；该方向同样要有实质剧情推进，而非纯日常切片。
 通用要求：①以男主角的视点推动剧情——大纲聚焦男主的行动、抉择与目标，描述他如何推进当前局面；②充分发挥【当前精准角色】人设——人物的性格决定其态度与反应，人物的能力与设定决定剧情手段，身份、经历、羁绊在对应情节中起作用；③允许剧情事件自然促成关系变化——关系并非一成不变，男主角的介入可以合理地改变人物间的态度与距离，只要变化由事件驱动且符合人物性格；④三个走向必须相互独立，任一走向中新出现的人物、地点或事件设定其他走向不得复用；⑤所有走向都必须贴合当前章节进展与已有设定，不得跳脱到无关情节、突兀引入设定或杜撰隐藏真相。`;
 
-  function branchRequest(book, config, actions=[], costumes=[]) {
+  function branchRequest(book, config, actions=[], costumes=[], forbiddenWords=[]) {
     return {
       model: config.model,
       messages: [
         { role: 'system', content: branchPrompt },
-        { role: 'user', content: '前文信息：\n' + branchContext(book, actions, costumes) + '\n\n请输出 3 个剧情走向的 JSON 数组。' }
+        { role: 'user', content: '前文信息：\n' + branchContext(book, actions, costumes, forbiddenWords) + '\n\n请输出 3 个剧情走向的 JSON 数组。' }
       ],
       temperature: Number(config.temperature),
       max_tokens: 3000
@@ -256,5 +272,5 @@
   }
 
   global.NovelCore = { chapterRequest, titleFrom, isTruncated, summaryRequest,
-    parseSummaryGrowth, applyGrowth, branchRequest, previousText, systemPrompt, growthText };
+    parseSummaryGrowth, applyGrowth, branchRequest, previousText, systemPrompt, growthText, forbiddenText };
 })(window);

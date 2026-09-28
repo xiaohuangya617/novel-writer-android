@@ -26,8 +26,16 @@ const costumes = [{ id: 'costume-1', name: '深色雨衣', details: '防水布�
 const costumePrompt = core.NovelCore.systemPrompt(book, [], costumes);
 assert.ok(costumePrompt.includes('【必须保持一致的服装与外观规则】'));
 assert.ok(costumePrompt.includes('深色雨衣') && costumePrompt.includes('防水布料'));
+const forbiddenPrompt = core.NovelCore.chapterRequest(book, [], [], '写下一章', { model: 'test', ctxChapters: 5 }, false, ['泛白', '湖中投入石子']);
+assert.ok(forbiddenPrompt.messages[0].content.includes('【全局禁用词与短语】'));
+assert.ok(forbiddenPrompt.messages[0].content.includes('绝对禁止出现“泛白”'));
+assert.ok(forbiddenPrompt.messages[0].content.includes('绝对禁止出现“湖中投入石子”'));
+const chapterWithCostume = core.NovelCore.chapterRequest(book, [], costumes, '写下一章', { model: 'test', ctxChapters: 5 }, false);
+assert.ok(chapterWithCostume.messages[1].content.includes('请严格按照【必须保持一致的服装与外观规则】中的定义来描写服装。'));
 assert.ok(core.NovelCore.summaryRequest(book, { content: '正文' }, { model: 'test' }).messages[1].content.includes(growth));
 assert.ok(core.NovelCore.summaryRequest(book, { content: '正文' }, { model: 'test' }, [], costumes).messages[1].content.includes('深色雨衣'));
+const summaryTask = core.NovelCore.summaryRequest(book, { content: '正文' }, { model: 'test' }).messages[1].content;
+assert.ok(summaryTask.includes('出场人物、时间、地点') && summaryTask.includes('身体状态') && summaryTask.includes('不得重复历史经历'));
 const branch = core.NovelCore.branchRequest({ ...book, plotSet: '主线', chapters: [{ title: '第1章', summary: '最新进展' }] }, { model: 'test', temperature: '1.0' });
 assert.ok(branch.messages[1].content.includes(growth));
 assert.ok(branch.messages[1].content.indexOf('【主线大纲】') < branch.messages[1].content.indexOf('【角色成长经历'));
@@ -80,7 +88,7 @@ const saved = {
     await freshPage.locator('#closeSheet').click();
     assert.equal(await freshPage.locator('#createFirstBook').isVisible(), true);
     await freshPage.reload();
-    const archive = { appArchiveVersion: 1, books: saved.books, globalActions: [], currentBookId: 'book', appConfig: saved.apiConfig };
+    const archive = { appArchiveVersion: 1, books: saved.books, globalActions: [], globalForbiddenWords: [], currentBookId: 'book', appConfig: saved.apiConfig };
     const chooseArchive = async () => {
       const pending = freshPage.waitForEvent('filechooser');
       await freshPage.locator('#startRestore').click();
@@ -98,8 +106,8 @@ const saved = {
     await freshPage.locator('#archiveButton').click();
     assert.equal(await freshPage.locator('label[for="restoreFile"]').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(19, 109, 81)');
     assert.deepEqual(await freshPage.locator('#sheetBody .sheet-list > button, #sheetBody .sheet-list > label').allInnerTexts(), [
-      '导出本书正文（txt）', '导出项目存档（app）', '分享项目存档（app）',
-      '分享项目存档（html）', '恢复项目存档（app）', '初始化所有数据'
+      '导出本书正文（txt）', '导出/分享项目存档（app）',
+      '导出/分享项目存档（html）', '恢复项目存档（app）', '初始化所有数据'
     ]);
     await freshPage.locator('#closeSheet').click();
     await freshPage.locator('#menuButton').click();
@@ -262,7 +270,7 @@ const saved = {
         loadApiSettings: () => JSON.stringify({ ...config, key: '' }),
         saveApiSettings: () => true, saveProject: json => (localStorage.setItem('native_project', json), true),
         chooseProject: () => localStorage.setItem('native_choose_called', 'yes'), pageReady: () => {},
-        appVersion: () => '1.25',
+        appVersion: () => '1.28',
         checkUpdate: () => { localStorage.setItem('update_check_called', 'yes'); },
         refreshUpdate: () => { localStorage.setItem('update_refresh_called', 'yes'); },
         downloadUpdate: () => { localStorage.setItem('update_download_called', 'yes'); },
@@ -270,6 +278,8 @@ const saved = {
         cancelUpdateDownload: () => { localStorage.setItem('update_cancel_called', 'yes'); },
         request: id => { localStorage.setItem('api_test_request_id', id); },
         cancel: id => { localStorage.setItem('api_test_cancel_id', id); },
+        exportProject: json => { localStorage.setItem('exported_app', json); },
+        exportHtmlProject: json => { localStorage.setItem('exported_html', json); },
         shareProject: json => { localStorage.setItem('shared_app', json); },
         shareHtmlProject: json => { localStorage.setItem('shared_html', json); }
       };
@@ -288,7 +298,7 @@ const saved = {
     assert.equal(await nativeFreshPage.locator('#topBookName').innerText(), '测试作品');
     await nativeFreshPage.locator('#menuButton').click();
     await nativeFreshPage.locator('[data-sheet="version"]').click();
-    assert.match(await nativeFreshPage.locator('#sheetBody').innerText(), /1\.25/);
+    assert.match(await nativeFreshPage.locator('#sheetBody').innerText(), /1\.28/);
     assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_refresh_called')), 'yes');
     await nativeFreshPage.locator('#checkUpdate').click();
     assert.equal(await nativeFreshPage.evaluate(() => localStorage.getItem('update_check_called')), 'yes');
@@ -338,10 +348,24 @@ const saved = {
     assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('native_project')).books[0].name), '测试作品');
     await nativeFreshPage.locator('#closeSheet').click();
     await nativeFreshPage.locator('#archiveButton').click();
-    await nativeFreshPage.locator('#shareProject').click();
+    await nativeFreshPage.locator('#chooseAppArchive').click();
+    await nativeFreshPage.locator('#shareArchiveChoice').click();
     assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('shared_app')).appArchiveVersion), 1);
-    await nativeFreshPage.locator('#shareHtmlProject').click();
+    await nativeFreshPage.locator('#closeSheet').click();
+    await nativeFreshPage.locator('#archiveButton').click();
+    await nativeFreshPage.locator('#chooseAppArchive').click();
+    await nativeFreshPage.locator('#exportArchiveChoice').click();
+    assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('exported_app')).appArchiveVersion), 1);
+    await nativeFreshPage.locator('#closeSheet').click();
+    await nativeFreshPage.locator('#archiveButton').click();
+    await nativeFreshPage.locator('#chooseHtmlArchive').click();
+    await nativeFreshPage.locator('#shareArchiveChoice').click();
     assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('shared_html')).appArchiveVersion), undefined);
+    await nativeFreshPage.locator('#closeSheet').click();
+    await nativeFreshPage.locator('#archiveButton').click();
+    await nativeFreshPage.locator('#chooseHtmlArchive').click();
+    await nativeFreshPage.locator('#exportArchiveChoice').click();
+    assert.equal(await nativeFreshPage.evaluate(() => JSON.parse(localStorage.getItem('exported_html')).appArchiveVersion), undefined);
     await nativeFreshPage.locator('#closeSheet').click();
     await nativeFreshPage.locator('#menuButton').click();
     await nativeFreshPage.locator('[data-sheet="api"]').click();
@@ -403,12 +427,20 @@ const saved = {
     await page.goto('https://app.local/index.html');
     assert.deepEqual(await page.evaluate(() => [state.readerFontSize, state.messageFontSize]), [20, 16]);
     await page.locator('#menuButton').click();
-    assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'fontSize', 'messageFontSize', 'help', 'version']);
+    assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'forbiddenWords', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'fontSize', 'messageFontSize', 'help', 'version']);
     assert.equal((await page.locator('.drawer-item[data-sheet="api"]').innerText()).trim(), 'AI设置');
     assert.equal((await page.locator('.drawer-item[data-sheet="globalRoles"]').innerText()).trim(), '素材角色库');
     assert.equal(await page.locator('#continueButton span').innerText(), '走向');
     assert.equal(await page.locator('#continueButton i').getAttribute('class'), 'fa-solid fa-brush');
     assert.equal(await page.locator('.drawer-label').count(), 0);
+    await page.locator('[data-sheet="forbiddenWords"]').click();
+    await page.locator('#forbiddenWord').fill('泛白');
+    await page.locator('#forbiddenWordForm button[type="submit"]').click();
+    assert.deepEqual(await page.evaluate(() => state.globalForbiddenWords), ['泛白']);
+    assert.deepEqual(await page.evaluate(() => backupObject().globalForbiddenWords), ['泛白']);
+    assert.deepEqual(await page.evaluate(() => htmlBackupObject().globalForbiddenWords), ['泛白']);
+    await page.locator('#closeSheet').click();
+    await page.locator('#menuButton').click();
     await page.locator('[data-sheet="help"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '使用说明');
     assert.equal(await page.locator('.help-copy p').count(), 5);
@@ -542,7 +574,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.26/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.28/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();
