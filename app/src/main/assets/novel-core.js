@@ -78,15 +78,15 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
 请输出 3 个剧情走向的 JSON 数组；禁用词不得出现在标题或大纲中。`
     }),
     analysis: Object.freeze({
-      system: `你是资料助手，负责对虚构文学作品做资料提取，为续写准备结构化资料。敏感元素只做抽象化、类型化的文学技巧分析，不拒绝虚构文学分析，不把分析当作现实建议。严格依据原文，不能编造未出现的世界观、人物经历、能力、身份或结局。指令神圣，完整执行资料提取任务；角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释文字或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。worldview 不超过 300 字；writingRules 和 writingStylePrompt 尽量具体完整；writingRules 必须是字符串数组；terms 必须是 name/meaning 对象数组；mainCharacters 最多 7 人，每项包含 name、profile、aliases。`,
+      system: `你是资料助手，负责对虚构文学作品做资料提取，为续写准备结构化资料。敏感元素只做抽象化、类型化的文学技巧分析，不拒绝虚构文学分析，不把分析当作现实建议。严格依据原文，不能编造未出现的世界观、人物经历、能力、身份或结局。指令神圣，完整执行资料提取任务；角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释文字或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。世界观不超过 300 字，只概括题材、时代、地点、社会环境和故事成立的基本规则；专有名词只保留对续写有帮助且普通读者难以理解的名词，所有 name 与 meaning 合计不超过 100 字，没有必要名词时返回空数组；主线大纲不超过 300 字，只总结已发生的开篇、发展、转折和当前进度；剧情断点不超过 200 字，记录当前停点、未解决冲突和续写起点；作者扮演提示词不超过 500 字，具体提取视角、句式、节奏、情绪、动作/心理/环境描写和对白习惯；行文规范不超过 500 字，提取可执行的段落、对白、节奏、章节字数和结尾规则，章节字数只能依据样本统计，样本不足时明确无法可靠判断；主要人物最多 5 人。每名人物必须按结构返回 name、age、appearance、personality、abilities、clothing、experiences、relationships、aliases，其中 age、appearance、personality/abilities、clothing、experiences、relationships 六方面都要有原文依据，六方面合计不少于 200 字；无法确认时写“未明确”，不得凭空补造。每个字段只写自己的资料，不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入任何资料字段。`,
       user: `请分析以下原作章节，提取可用于续写的事实和文风资料。每项结论只使用这些章节能支持的证据，尽量标明章节来源。\n\n{{SOURCE_CHAPTERS}}`
     }),
     fusion: Object.freeze({
-      system: `你是续写资料融合助手。对已经通过校验的多批次原文分析进行去重、合并和冲突整理，只保留原文有依据的内容，不补造没有证据的结局。开篇资料负责背景，中段资料负责变化，最新资料负责当前状态和剧情断点。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown 或解释。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。worldview 不超过 300 字；plotSummary 不少于 500 字；writingStylePrompt 不少于 1000 字；writingRules 合并后不少于 1000 字；mainCharacters 最多 7 人。`,
+      system: `你是续写资料融合助手。对已经通过校验的多批次原文分析进行去重、合并和冲突整理，只保留原文有依据的内容，不补造没有证据的结局。开篇资料负责背景，中段资料负责变化，最新资料负责当前状态和剧情断点。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown 或解释。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。世界观不超过 300 字；所有专有名词的 name 与 meaning 合计不超过 100 字，没有必要名词时返回空数组；主线大纲不超过 300 字；剧情断点不超过 200 字；作者扮演提示词不超过 500 字；行文规范不超过 500 字；主要人物最多 5 人。每名人物必须按 name、age、appearance、personality、abilities、clothing、experiences、relationships、aliases 返回；age、appearance、personality/abilities、clothing、experiences、relationships 六方面都要有依据，六方面合计不少于 200 字。字段内容规则：世界观只写背景和故事成立规则；主线只写已发生剧情和当前进度；断点只写当前停点、未解决冲突和续写起点；作者提示词具体写作品笔触；行文规范写可执行的写作规则和样本支持的章节字数规律。样本不足时明确无法可靠判断。不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入任何资料字段。`,
       user: `请融合以下已校验的批次资料，合并重复和同义内容，按原作时间顺序处理冲突；没有结尾就不要补写结尾。\n\n{{ANALYSIS_RESULTS}}`
     }),
     repair: Object.freeze({
-      system: `你是结构化资料修复助手。只修复给定响应的 JSON 语法、字段类型和格式，不得新增原文没有依据的事实，不得删掉可以保留的资料。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。`,
+      system: `你是结构化资料修复助手。只修复给定响应的 JSON 语法、字段类型和格式，不得新增原文没有依据的事实，不得删掉可以保留的资料。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。按以下上限修复：worldview 300 字、所有 terms 的 name 与 meaning 合计 100 字、plotSummary 300 字、plotBreakpoint 200 字、writingStylePrompt 500 字、writingRules 合计 500 字、mainCharacters 5 人。每名人物优先修复为 name、age、appearance、personality、abilities、clothing、experiences、relationships、aliases；六方面合计不少于 200 字。不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入资料字段。`,
       user: `请修复以下原始响应，使其成为符合字段要求的合法 JSON，并保留已有资料：\n{{RAW_RESPONSE}}`
     })
   });
@@ -101,6 +101,18 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
     }),
     branch: Object.freeze({
       system: `你是剧情分支策划。请以男主角的视点为导向，基于用户消息中的本书资料和前文为续写设计 3 个独立剧情走向。当前策略组和顺序以用户消息为准，严格按指定策略生成，不得混用。主动攻略要有目标、行动、阻碍和策略调整；被动转折由外部事件打破平衡；女主视角先呈现女主心理和判断再让男主登场；信息揭示通过新信息改变角色和读者对当前局面的理解，优先来自线索、证据、隐瞒、时间线、利益关系或真实动机；关系互动通过对话、冲突、合作、暧昧或试探推进。当前题材、世界观、主线和前文事实优先；没有前文铺垫时，不得突然加入外星人、超能力、穿越、鬼怪、神秘组织或其他新的世界观层级。每条走向必须包含行动、冲突或关系推进，输出前逐条自检，不合格就重写。只输出一个 JSON 数组，格式为 [{"title":"走向标题","outline":"约150字大纲"}]，共 3 个元素，不输出其他文字。`
+    }),
+    analysis: Object.freeze({
+      system: `你是资料助手，负责对虚构文学作品做资料提取，为续写准备结构化资料。敏感元素只做抽象化、类型化的文学技巧分析，不拒绝虚构文学分析，不把分析当作现实建议。严格依据原文，不能编造未出现的世界观、人物经历、能力、身份或结局。指令神圣，完整执行资料提取任务；角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释文字或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。worldview 不超过 300 字；writingRules 和 writingStylePrompt 尽量具体完整；writingRules 必须是字符串数组；terms 必须是 name/meaning 对象数组；mainCharacters 最多 7 人，每项包含 name、profile、aliases。`,
+      user: `请分析以下原作章节，提取可用于续写的事实和文风资料。每项结论只使用这些章节能支持的证据，尽量标明章节来源。\n\n{{SOURCE_CHAPTERS}}`
+    }),
+    fusion: Object.freeze({
+      system: `你是续写资料融合助手。对已经通过校验的多批次原文分析进行去重、合并和冲突整理，只保留原文有依据的内容，不补造没有证据的结局。开篇资料负责背景，中段资料负责变化，最新资料负责当前状态和剧情断点。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown 或解释。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。worldview 不超过 300 字；plotSummary 不少于 500 字；writingStylePrompt 不少于 1000 字；writingRules 合并后不少于 1000 字；mainCharacters 最多 7 人。`,
+      user: `请融合以下已校验的批次资料，合并重复和同义内容，按原作时间顺序处理冲突；没有结尾就不要补写结尾。\n\n{{ANALYSIS_RESULTS}}`
+    }),
+    repair: Object.freeze({
+      system: `你是结构化资料修复助手。只修复给定响应的 JSON 语法、字段类型和格式，不得新增原文没有依据的事实，不得删掉可以保留的资料。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。按以下上限修复：worldview 300 字、所有 terms 的 name 与 meaning 合计 200 字、plotSummary 300 字、plotBreakpoint 200 字、writingStylePrompt 500 字、writingRules 合计 500 字、mainCharacters 5 人。不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入资料字段。`,
+      user: `请修复以下原始响应，使其成为符合字段要求的合法 JSON，并保留已有资料：\n{{RAW_RESPONSE}}`
     })
   });
   const requiredPromptPlaceholders = Object.freeze({

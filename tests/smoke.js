@@ -8,6 +8,11 @@ const { chromium } = require('playwright-core');
 const assets = path.resolve(__dirname, '../app/src/main/assets');
 const core = {};
 vm.runInNewContext(fs.readFileSync(path.join(assets, 'novel-core.js'), 'utf8'), { window: core });
+const appSource = fs.readFileSync(path.join(assets, 'index.html'), 'utf8');
+const worldMessageIndex = appSource.indexOf("content:msg.world");
+const completionMessageIndex = appSource.indexOf("content:completionNotice");
+const costMessageIndex = appSource.indexOf("content:continuationTotalCostLabel(d)");
+assert.ok(worldMessageIndex >= 0 && completionMessageIndex > worldMessageIndex && costMessageIndex > completionMessageIndex, '续写消息顺序必须以费用消息结束');
 
 const characters = Array.from({ length: 6 }, (_, index) => ({
   id: `c${index}`, name: `角色${index}`, growth: Array.from({ length: 4 }, (_, offset) => ({
@@ -165,6 +170,29 @@ const saved = {
     assert.ok(continuationChecks.smallMaxChapters <= 25);
     assert.equal(continuationChecks.largeUnique, true);
     assert.ok(continuationChecks.largeMaxChars <= 40000);
+    const continuationCharacterChecks = await freshPage.evaluate(() => {
+      const part = '这是用于验证人物资料字段的具体原文证据，包含稳定身份、外貌、行为习惯、能力边界、服装特征、关键经历和人物关系，内容足够长但不添加无法由原文确认的设定。';
+      const character = { name: '朝日奈葵', age: '二十岁', appearance: part, personality: part, abilities: part, clothing: part, experiences: part, relationships: part, aliases: ['葵'] };
+      const base = { writingStylePrompt: '具体文风', writingRules: ['具体行文规则'], worldview: '现代都市背景', terms: [], plotSummary: '已发生的主线剧情', plotBreakpoint: '当前剧情断点', mainCharacters: [character] };
+      const normalized = continuationNormalize(base);
+      const mapped = continuationCharacterToBook(normalized.mainCharacters[0]);
+      const oldProfile = part.repeat(3);
+      const old = continuationNormalize({ ...base, mainCharacters: [{ name: '旧角色', profile: oldProfile, aliases: [] }] });
+      const oldAccepted = (() => { try { continuationValidate({ ...base, mainCharacters: [{ name: '旧角色', profile: oldProfile, aliases: [] }] }, true); return true; } catch { return false; } })();
+      const tooManyTerms = { ...base, terms: [{ name: '超长名词', meaning: '一'.repeat(100) }] };
+      const termRejected = (() => { try { continuationValidate(tooManyTerms, true); return false; } catch (error) { return /100/.test(error.message); } })();
+      const preserved = NovelCore.migrateDeveloperPrompts({ analysis: { system: '用户自定义分析模板' } });
+      return { valid: continuationCharacterValid(normalized.mainCharacters[0]), mapped, oldProfile: old.mainCharacters[0].legacyProfile, oldAccepted, termRejected, preserved: preserved.analysis.system };
+    });
+    assert.equal(continuationCharacterChecks.valid, true);
+    assert.ok(continuationCharacterChecks.mapped.appearance.includes('年龄：二十岁'));
+    assert.ok(continuationCharacterChecks.mapped.personality.includes('能力：'));
+    assert.ok(continuationCharacterChecks.mapped.special.includes('日常服装：'));
+    assert.ok(continuationCharacterChecks.mapped.relationship.includes('人际关系：'));
+    assert.equal(continuationCharacterChecks.oldProfile, true);
+    assert.equal(continuationCharacterChecks.oldAccepted, true);
+    assert.equal(continuationCharacterChecks.termRejected, true);
+    assert.equal(continuationCharacterChecks.preserved, '用户自定义分析模板');
     await freshPage.locator('#closeSheet').click();
     await freshPage.locator('#menuButton').click();
     await freshPage.locator('[data-sheet="globalRoles"]').click();
@@ -639,7 +667,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.38/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.41/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();
