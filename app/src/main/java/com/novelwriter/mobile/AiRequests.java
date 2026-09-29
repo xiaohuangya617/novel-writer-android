@@ -29,7 +29,7 @@ final class AiRequests {
     private final Context context;
     private static AiRequests shared;
     private volatile Callback callback;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = Executors.newFixedThreadPool(3);
     private final Object serviceLock = new Object();
     private final Map<String, Request> requests = new ConcurrentHashMap<>();
     private final Set<String> cancelledBeforeStart = ConcurrentHashMap.newKeySet();

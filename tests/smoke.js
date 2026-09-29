@@ -36,6 +36,10 @@ assert.ok(core.NovelCore.summaryRequest(book, { content: '正文' }, { model: 't
 assert.ok(core.NovelCore.summaryRequest(book, { content: '正文' }, { model: 'test' }, [], costumes).messages[1].content.includes('深色雨衣'));
 const summaryTask = core.NovelCore.summaryRequest(book, { content: '正文' }, { model: 'test' }).messages[1].content;
 assert.ok(summaryTask.includes('出场人物、时间、地点') && summaryTask.includes('身体状态') && summaryTask.includes('不得重复历史经历'));
+const summaryBody = core.NovelCore.summaryRequest({ ...book, worldview: '世界观' }, { content: '章节正文' }, { model: 'test' }, [], costumes, ['泛白']).messages;
+assert.ok(!summaryBody[0].content.includes('角色0') && !summaryBody[0].content.includes('深色雨衣'));
+assert.ok(summaryBody[1].content.indexOf('【角色成长经历') < summaryBody[1].content.indexOf('【本章正文】'));
+assert.ok(summaryBody[1].content.includes('深色雨衣') && summaryBody[1].content.includes('绝对禁止出现“泛白”'));
 const branch = core.NovelCore.branchRequest({ ...book, plotSet: '主线', chapters: [{ title: '第1章', summary: '最新进展' }] }, { model: 'test', temperature: '1.0' });
 assert.ok(branch.messages[1].content.includes(growth));
 assert.ok(branch.messages[1].content.includes('【长期提示】长期提示'));
@@ -46,6 +50,7 @@ const xBranch = core.NovelCore.branchRequest({ ...book, worldview: '现代都市
 const hBranch = core.NovelCore.branchRequest({ ...book, plotSet: '主线', chapters: [{ title: '第1章', summary: '最新进展' }] }, { model: 'test', temperature: '1.0' }, [], [], [], 'H');
 assert.equal(xBranch.messages[0].content, hBranch.messages[0].content);
 assert.ok(xBranch.messages[0].content.includes('信息揭示') && xBranch.messages[0].content.includes('不得突然加入外星人'));
+assert.ok(xBranch.messages[0].content.includes('三个走向相互独立') && xBranch.messages[0].content.includes('输出前逐条自检'));
 assert.ok(xBranch.messages[1].content.startsWith('本次策略组：X策略'));
 assert.ok(xBranch.messages[1].content.includes('绝对禁止出现“泛白”'));
 assert.ok(hBranch.messages[1].content.startsWith('本次策略组：H策略'));
@@ -59,6 +64,24 @@ const unfinished = { chapters: [{ title: '第1章 起点', content: '开头标�
 const fallback = core.NovelCore.previousText(unfinished, 5);
 assert.ok(fallback.includes('开头标记') && fallback.includes('结尾转折'));
 assert.ok(fallback.includes('未生成摘要'));
+const continuationBook = {
+  characters: [{ id: 'continue-role', name: '续写角色', growth: [] }],
+  chapters: [
+    { id: 'source', title: '原作：原著', sourceChapter: true, content: '原作参考内容', summary: '原作资料' },
+    { id: 'story-1', title: '第1章 新开始', content: '新正文', summary: '新章节摘要' }
+  ]
+};
+assert.deepEqual(core.NovelCore.storyChapters(continuationBook).map(item => item.id), ['story-1']);
+assert.equal(core.NovelCore.chapterNo(continuationBook, continuationBook.chapters[0]), 0);
+assert.equal(core.NovelCore.chapterNo(continuationBook, continuationBook.chapters[1]), 1);
+const continuationPrevious = core.NovelCore.previousText(continuationBook, 5);
+assert.ok(continuationPrevious.includes('第1章 新开始'));
+assert.ok(!continuationPrevious.includes('原作参考内容'));
+const continuationGrowth = core.NovelCore.parseSummaryGrowth('【摘要】新章摘要\n【成长】第1章：续写角色——第一次主动行动', continuationBook, continuationBook.chapters[1]);
+assert.equal(continuationGrowth.growth[0].chapterId, 'story-1');
+assert.equal(continuationGrowth.growth[0].chapNo, 1);
+const sourceOnly = { ...continuationBook, chapters: [continuationBook.chapters[0]] };
+assert.equal(core.NovelCore.branchRequest(sourceOnly, { model: 'test', temperature: '1.0' }).messages[1].content.includes('原作参考内容'), false);
 const directionFallback = core.NovelCore.branchRequest(unfinished, { model: 'test', temperature: '1.0' }).messages[1].content;
 assert.ok(directionFallback.includes('开头标记') && directionFallback.includes('结尾转折'));
 const growthBook = { characters: [{ id: 'aoi', name: '朝日奈葵（葵）', growth: [] }], chapters: [{ id: 'growth-chapter', content: '正文' }] };
@@ -124,10 +147,24 @@ const saved = {
     await freshPage.locator('#closeSheet').click();
     await freshPage.locator('#menuButton').click();
     await freshPage.locator('[data-sheet="books"]').click();
-    const bookStateBeforePlaceholder = await freshPage.evaluate(() => JSON.stringify({ activeBookId: state.activeBookId, books: state.books }));
     await freshPage.locator('#manageContinueBook').click();
-    assert.match(await freshPage.locator('#toast').innerText(), /续写作品.*暂未开放/);
-    assert.equal(await freshPage.evaluate(() => JSON.stringify({ activeBookId: state.activeBookId, books: state.books })), bookStateBeforePlaceholder);
+    assert.equal(await freshPage.locator('#sheetTitle').innerText(), '续写作品');
+    assert.equal(await freshPage.locator('#continuationImportForm').isVisible(), true);
+    const continuationChecks = await freshPage.evaluate(() => {
+      const parsed = continuationParse('书名\n\n序章：起点\n序幕正文\n\n第1章标题\n正文一\n\n第2回：转折\n正文二\n\nChapter ３\n正文三\n\n番外篇：后日谈\n番外正文');
+      const small = Array.from({ length: 30 }, (_, index) => ({ no: index + 1, title: `第${index + 1}章`, content: '短正文'.repeat(20) }));
+      const smallSession = { text: 'x'.repeat(90000), chapters: small, selection: continuationPick(small, 90000) };
+      const smallBatches = continuationBuildBatches(smallSession);
+      const large = Array.from({ length: 12 }, (_, index) => ({ no: index + 1, title: `第${index + 1}章`, content: '长正文'.repeat(20000) }));
+      const largeSession = { text: 'x'.repeat(200000), chapters: large, selection: continuationPick(large, 200000) };
+      const largeBatches = continuationBuildBatches(largeSession);
+      return { parsed: parsed.map(item => item.title), smallCount: smallBatches.length, smallMaxChapters: Math.max(...smallBatches.map(item => item.indexes.length)), largeUnique: new Set(largeSession.selection.selected).size === largeSession.selection.selected.length, largeMaxChars: Math.max(...largeBatches.map(item => item.charCount)) };
+    });
+    assert.deepEqual(continuationChecks.parsed, ['序章：起点', '第1章标题', '第2回：转折', 'Chapter ３', '番外篇：后日谈']);
+    assert.equal(continuationChecks.smallCount, 2);
+    assert.ok(continuationChecks.smallMaxChapters <= 25);
+    assert.equal(continuationChecks.largeUnique, true);
+    assert.ok(continuationChecks.largeMaxChars <= 40000);
     await freshPage.locator('#closeSheet').click();
     await freshPage.locator('#menuButton').click();
     await freshPage.locator('[data-sheet="globalRoles"]').click();
@@ -217,7 +254,7 @@ const saved = {
     assert.equal(await freshPage.evaluate(() => state.readerFontSize), 20);
     await freshPage.locator('#readerFontRange').fill('30');
     assert.equal(await freshPage.evaluate(() => state.readerFontSize), 30);
-    await freshPage.locator('#resetReaderFont').click();
+    await freshPage.locator('#resetAllFonts').click();
     assert.equal(await freshPage.evaluate(() => state.readerFontSize), 20);
     await freshPage.locator('#closeSheet').click();
     await freshPage.locator('[data-tab="reader"]').click();
@@ -236,10 +273,10 @@ const saved = {
     await freshPage.locator('[data-tab="messages"]').click();
     await freshPage.evaluate(() => { book().chatHistory.push({ role:'assistant', content:'消息字号测试' }); render() });
     await freshPage.locator('#menuButton').click();
-    await freshPage.locator('[data-sheet="messageFontSize"]').click();
+    await freshPage.locator('[data-sheet="fontSize"]').click();
     assert.equal(await freshPage.locator('#messageFontRange').getAttribute('max'), '30');
     await freshPage.locator('#messageFontRange').fill('30');
-    await freshPage.locator('#resetMessageFont').click();
+    await freshPage.locator('#resetAllFonts').click();
     assert.equal(await freshPage.evaluate(() => state.messageFontSize), 16);
     await freshPage.locator('#messageFontRange').fill('30');
     assert.equal(await freshPage.locator('#instruction').evaluate(el => getComputedStyle(el).fontSize), '30px');
@@ -439,7 +476,7 @@ const saved = {
     await page.goto('https://app.local/index.html');
     assert.deepEqual(await page.evaluate(() => [state.readerFontSize, state.messageFontSize]), [20, 16]);
     await page.locator('#menuButton').click();
-    assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'forbiddenWords', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'strategy', 'fontSize', 'messageFontSize', 'help', 'version']);
+    assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'forbiddenWords', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'strategy', 'fontSize', 'help', 'developer', 'version']);
     assert.equal((await page.locator('.drawer-item[data-sheet="api"]').innerText()).trim(), 'AI设置');
     assert.equal((await page.locator('.drawer-item[data-sheet="globalRoles"]').innerText()).trim(), '素材角色库');
     assert.equal(await page.locator('#continueButton span').innerText(), '走向');
@@ -470,8 +507,9 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="help"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '使用说明');
-    assert.equal(await page.locator('.help-copy p').count(), 5);
-    assert.match(await page.locator('.help-copy').innerText(), /素材角色库.*正文.*项目存档/s);
+    assert.equal(await page.locator('.help-copy p').count(), 8);
+    const helpText = await page.locator('.help-copy').innerText();
+    assert.ok(helpText.includes('素材角色') && helpText.includes('正文') && helpText.includes('App/HTML') && helpText.includes('第100章内完结'));
     await page.locator('#closeSheet').click();
     const original = await page.evaluate(() => localStorage.getItem('novel_mobile_ui_demo_v1'));
     const invalid = { appArchiveVersion: 1, books: [{ ...saved.books[0], chatHistory: [null] }], globalActions: [], appConfig: saved.apiConfig };
@@ -601,9 +639,48 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.29/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.38/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
+    await page.locator('#closeSheet').click();
+    await page.locator('#menuButton').click();
+    const developerItem=page.locator('[data-sheet="developer"]');
+    for(let i=0;i<7;i++)await developerItem.click();
+    assert.equal(await page.locator('#sheetTitle').innerText(), '开发者选项');
+    assert.equal(await page.locator('.prompt-card').count(), 12);
+    assert.ok(await page.locator('.prompt-card').first().evaluate(el => Math.round(el.getBoundingClientRect().height) === 78));
+    assert.equal(await page.locator('.prompt-card').first().locator('.prompt-card-actions button').count(), 2);
+    await page.locator('[data-prompt-edit="chapter.system"]').click();
+    assert.equal(await page.locator('#sheetTitle').innerText(), '修改核心 Prompt');
+    await page.locator('#confirmPromptEdit').click();
+    const customTemplate='固定测试规则\n{{BOOK_GLOBAL_PROMPT}}\n{{WRITING_STYLE}}\n{{BOOK_CHARACTERS}}\n{{ACTION_RULES}}\n{{COSTUME_RULES}}\n{{FORBIDDEN_WORDS}}\n{{WORLDVIEW}}\n{{PLOT_SET}}\n{{GROWTH}}';
+    await page.locator('#developerPromptText').fill(customTemplate);
+    await page.locator('#developerPromptForm button[type="submit"]').click();
+    assert.equal(await page.evaluate(() => state.developerPrompts.chapter.system), customTemplate);
+    assert.ok(await page.locator('.prompt-card.prompt-card-modified').filter({hasText:'正文生成 · System'}).count());
+    await page.locator('[data-prompt-edit="chapter.system"]').click();
+    await page.locator('#confirmPromptEdit').click();
+    await page.locator('#resetDeveloperPrompt').click();
+    assert.equal(await page.locator('#sheetTitle').innerText(), '恢复默认');
+    await page.locator('#cancelConfirm').click();
+    assert.match(await page.locator('#sheetTitle').innerText(), /^编辑 /);
+    assert.equal(await page.locator('#developerPromptText').inputValue(), customTemplate);
+    await page.locator('#cancelDeveloperPrompt').click();
+    assert.equal(await page.locator('#sheetTitle').innerText(), '开发者选项');
+    const customRequest=await page.evaluate(() => NovelCore.chapterRequest(book(),state.actions,state.globalCostumes,'测试指令',{model:'test',ctxChapters:5},false,state.globalForbiddenWords,state.developerPrompts));
+    assert.match(customRequest.messages[0].content, /^固定测试规则/);
+    const developerArchive=await page.evaluate(() => ({app:backupObject(),html:htmlBackupObject()}));
+    assert.equal(developerArchive.app.developerPrompts.chapter.system, customTemplate);
+    assert.equal(Object.prototype.hasOwnProperty.call(developerArchive.html,'developerPrompts'), false);
+    await page.locator('[data-prompt-reset="chapter.system"]').click();
+    assert.equal(await page.locator('#sheetTitle').innerText(), '恢复默认');
+    await page.locator('#confirmAction').click();
+    assert.equal(await page.evaluate(() => state.developerPrompts.chapter.system), await page.evaluate(() => NovelCore.promptDefaults.chapter.system));
+    assert.equal(await page.locator('.prompt-card.prompt-card-modified').filter({hasText:'正文生成 · System'}).count(), 0);
+    await page.locator('#resetAllDeveloperPrompts').click();
+    assert.equal(await page.locator('#sheetTitle').innerText(), '恢复全部默认');
+    await page.locator('#confirmAction').click();
+    assert.equal(await page.evaluate(() => state.developerPrompts.chapter.system === NovelCore.promptDefaults.chapter.system), true);
     await page.locator('#closeSheet').click();
     const compact = await page.evaluate(() => {
       const panel = document.querySelector('#panel').getBoundingClientRect();
@@ -730,6 +807,20 @@ const saved = {
     assert.ok(!preview.includes('<script>'));
     assert.deepEqual(errors, []);
     console.log('PASS: growth selection, archive validation, save failures, reader batching, TXT, compact layout and cards');
+
+    await page.evaluate(() => {
+      state.books = [{ id: 'source-book', name: '续写作品', chapters: [
+        { id: 'source', title: '原作：原著', sourceChapter: true, content: '原作参考内容', summary: '原作资料' },
+        { id: 'story-1', title: '第1章 新开始', content: '新正文', summary: '新章节摘要' }
+      ], characters: [], chatHistory: [] }];
+      state.activeBookId = 'source-book';
+      state.selectedChapterId = 'story-1';
+      state.activeTab = 'messages';
+      render();
+    });
+    assert.equal(await page.locator('.book-count').innerText(), '1 章');
+    assert.match(await page.locator('.panel-header .subtle').innerText(), /1 章 · 最新：第1章/);
+    assert.equal(await page.locator('#chaptersList .chapter-row').first().locator('.chapter-title').innerText(), '原作：原著');
 
     const pendingBook = { ...saved.books[0], chatHistory: [{ role: 'user', content: '写一章', ts: Date.now() }], pendingInstruction: '写一章', draft: '写一章', pendingDirections: Array.from({length: 3}, () => ({title: '旧走向', outline: '旧内容'})) };
     const pendingProject = { ...saved, books: [pendingBook], selectedChapterId: null,

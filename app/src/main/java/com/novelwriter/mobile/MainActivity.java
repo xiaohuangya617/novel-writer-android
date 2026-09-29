@@ -45,6 +45,8 @@ public final class MainActivity extends Activity {
     private static final int EXPORT_FILE = 101;
     private static final int IMPORT_FILE = 102;
     private static final int UPDATE_PERMISSION = 103;
+    private static final int TEXT_FILE = 104;
+    private static final int TEXT_CHUNK_CHARS = 131072;
     private static final String PENDING_EXPORT_FILE = "pending_export_file";
     private static final String PENDING_EXPORT_LABEL = "pending_export_label";
     private WebView webView;
@@ -58,6 +60,8 @@ public final class MainActivity extends Activity {
     private boolean pageReady;
     private String pendingFileFunction;
     private String pendingFileValue;
+    private String pendingTextFileName;
+    private String pendingTextFileValue;
     private String pendingUpdateEvent;
 
     @Override public void onCreate(Bundle state) {
@@ -192,6 +196,14 @@ public final class MainActivity extends Activity {
         startActivityForResult(intent, IMPORT_FILE);
     }
 
+    private void chooseTextFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("text/plain");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"text/plain", "text/*", "application/octet-stream"});
+        startActivityForResult(intent, TEXT_FILE);
+    }
+
     private void shareProject(String json, String format) {
         files.execute(() -> { try {
             File folder = new File(getCacheDir(), "shared");
@@ -295,6 +307,42 @@ public final class MainActivity extends Activity {
             } catch (Exception error) {
                 runOnUiThread(() -> sendFileEvent("window.nativeBackupError", error.getMessage()));
             } });
+        } else if (requestCode == TEXT_FILE && resultCode == RESULT_OK && data != null) {
+            Uri source = data.getData();
+            if (source == null) {
+                sendFileEvent("window.nativeTextImportError", "未取得 TXT 文件，请重新选择");
+                return;
+            }
+            files.execute(() -> {
+                try (InputStream stream = getContentResolver().openInputStream(source)) {
+                    if (stream == null) throw new IllegalStateException("无法读取选定文件");
+                    ByteArrayOutputStream output = new ByteArrayOutputStream();
+                    byte[] chunk = new byte[8192];
+                    int count;
+                    final int maxBytes = 15 * 1024 * 1024;
+                    while ((count = stream.read(chunk)) != -1) {
+                        if (output.size() + count > maxBytes) throw new IllegalArgumentException("TXT 文件超过 15 MB，请先在电脑端拆分");
+                        output.write(chunk, 0, count);
+                    }
+                    byte[] bytes = output.toByteArray();
+                    String text;
+                    try {
+                        text = StandardCharsets.UTF_8.newDecoder()
+                                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                                .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+                    } catch (Exception utf8Error) {
+                        text = new String(bytes, java.nio.charset.Charset.forName("GB18030"));
+                    }
+                    String name = source.getLastPathSegment();
+                    if (name == null || name.isBlank()) name = "选定的 TXT";
+                    final String fileName = name;
+                    final String fileText = text;
+                    runOnUiThread(() -> sendTextFileEvent(fileName, fileText));
+                } catch (Exception error) {
+                    runOnUiThread(() -> sendFileEvent("window.nativeTextImportError", error.getMessage()));
+                }
+            });
         } else if (requestCode == UPDATE_PERMISSION) {
             if (getPackageManager().canRequestPackageInstalls()) installUpdate();
             else updateMessage("permission", "需要允许此应用安装更新，才能继续");
@@ -312,6 +360,31 @@ public final class MainActivity extends Activity {
             return;
         }
         sendToPage(function, value);
+    }
+
+    private void sendTextFileEvent(String name, String text) {
+        if (!pageReady) {
+            pendingTextFileName = name;
+            pendingTextFileValue = text;
+            return;
+        }
+        sendTextFileChunks(name, text);
+    }
+
+    private void sendTextFileChunks(String name, String text) {
+        int length = text == null ? 0 : text.length();
+        int total = Math.max(1, (length + TEXT_CHUNK_CHARS - 1) / TEXT_CHUNK_CHARS);
+        if (length == 0) {
+            webView.evaluateJavascript("window.nativeTextImportChunk(" + JSONObject.quote(name) + ",0,1,\"\")", null);
+            return;
+        }
+        for (int index = 0, start = 0; start < length; index++) {
+            int end = Math.min(length, start + TEXT_CHUNK_CHARS);
+            String chunk = text.substring(start, end);
+            webView.evaluateJavascript("window.nativeTextImportChunk(" + JSONObject.quote(name) + ","
+                    + index + "," + total + "," + JSONObject.quote(chunk) + ")", null);
+            start = end;
+        }
     }
 
     private void sendUpdateEvent(String value) {
@@ -337,6 +410,11 @@ public final class MainActivity extends Activity {
             sendToPage(pendingFileFunction, pendingFileValue);
             pendingFileFunction = null;
             pendingFileValue = null;
+        }
+        if (pendingTextFileName != null) {
+            sendTextFileChunks(pendingTextFileName, pendingTextFileValue);
+            pendingTextFileName = null;
+            pendingTextFileValue = null;
         }
         if (pendingUpdateEvent != null) {
             sendToPage("window.nativeUpdateEvent", pendingUpdateEvent);
@@ -407,5 +485,6 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public void shareProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json, "App")); }
         @JavascriptInterface public void shareHtmlProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json, "HTML")); }
         @JavascriptInterface public void chooseProject() { runOnUiThread(MainActivity.this::chooseProject); }
+        @JavascriptInterface public void chooseTextFile() { runOnUiThread(MainActivity.this::chooseTextFile); }
     }
 }
