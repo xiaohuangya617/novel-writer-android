@@ -27,61 +27,19 @@ API 费用由你填写的服务商收取。App 内的费用只是根据接口用
 
 ## 创作链
 
-三条链共用同一套资料组装规则：固定 Prompt 放在稳定前部，长期资料、近期摘要与角色成长随后注入，本次消息或待分析章节放在动态部分。下面分别展示三条主链，单张图保持紧凑，适合直接在 GitHub 页面查看。
+三条链共用同一套资料组装规则：固定 Prompt 放在稳定前部，长期资料、近期摘要与角色成长随后注入，本次消息或待分析章节放在动态部分。
 
 ### 1. 正文创作链
 
-```mermaid
-flowchart LR
-    B0["① 输入消息"] --> B1["② 组装请求<br/>固定模板 + 书籍资料<br/>摘要/成长 + 本次消息"]
-    B1 --> B2["③ 正文 API<br/>返回 Markdown"]
-    B2 --> B3["④ 保存最新章节"]
-    B3 --> B4["⑤ 摘要与成长 API<br/>独立请求"]
-    B4 --> B5["⑥ 回写资料<br/>显示结果"]
-    classDef input fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e;
-    classDef api fill:#fef3c7,stroke:#d97706,color:#78350f;
-    classDef store fill:#dcfce7,stroke:#16a34a,color:#14532d;
-    class B0 input;
-    class B1,B2,B4 api;
-    class B3,B5 store;
-```
+![正文创作链](docs/creative-chain-body.svg)
 
 ### 2. 走向创作链
 
-```mermaid
-flowchart LR
-    D0["① 点击‘走向’"] --> D1["② 选择 H / X 策略<br/>生成策略提示"]
-    D1 --> D2["③ 组装走向请求<br/>资料 + 当前章节 + 禁用词"]
-    D2 --> D3["④ 走向 API<br/>返回 3 条候选"]
-    D3 --> D4["⑤ 选择或修改<br/>回填消息框"]
-    D4 --> D5["⑥ 用户决定<br/>是否发送正文"]
-    classDef action fill:#f3e8ff,stroke:#9333ea,color:#581c87;
-    classDef api fill:#fef3c7,stroke:#d97706,color:#78350f;
-    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d;
-    class D0,D1,D2,D5 action;
-    class D3 api;
-    class D4 result;
-```
+![走向创作链](docs/creative-chain-direction.svg)
 
 ### 3. 续写作品创作链
 
-```mermaid
-flowchart LR
-    C0["① 导入 TXT<br/>填写书名"] --> C1["② 自动分章与选取<br/>≤10 万字全量<br/>&gt;10 万字：7 + 7 + 10"]
-    C1 --> C2["③ 分批分析 API<br/>每批 ≤25 章<br/>最多 3 批并发"]
-    C2 --> C3["④ JSON 校验 / 修复<br/>失败可重试或跳过"]
-    C3 --> C4["⑤ 资料融合 API<br/>去重并整理冲突"]
-    C4 --> C5["⑥ 严格失败时<br/>可妥协融合"]
-    C5 --> C6["⑦ 自动建书并回填<br/>原作独立保存<br/>正文从第 1 章开始"]
-    classDef input fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e;
-    classDef api fill:#fef3c7,stroke:#d97706,color:#78350f;
-    classDef repair fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
-    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d;
-    class C0,C1 input;
-    class C2,C4 api;
-    class C3,C5 repair;
-    class C6 result;
-```
+![续写作品创作链](docs/creative-chain-continuation.svg)
 
 - **正文链**：一次“发送”至少包含正文请求；正文完成后，再独立调用一次“摘要与角色成长”请求并回写资料。
 - **走向链**：走向只负责生成候选方向。用户确认后，走向文本回填消息框，是否进入正文链由用户决定。
