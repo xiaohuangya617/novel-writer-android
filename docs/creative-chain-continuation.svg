@@ -1,37 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="250" viewBox="0 0 1250 250" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="250" viewBox="0 0 1200 250" role="img" aria-labelledby="title desc">
   <title id="title">续写作品创作链</title>
-  <desc id="desc">导入 TXT，自动分章和选取，分批分析，校验修复 JSON，融合资料，必要时妥协融合，自动建书并回填资料。</desc>
+  <desc id="desc">导入并选取原文，分批分析和修复 JSON，融合资料后自动创建新书并回填。</desc>
   <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/></marker>
+    <marker id="arrow" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto"><path d="M0,0 L11,5.5 L0,11 Z" fill="#64748b"/></marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#94a3b8" flood-opacity="0.22"/></filter>
     <style>
-      .label { font-family: "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 15px; fill: #172033; text-anchor: middle; }
-      .small { font-size: 13px; }
-      .edge { stroke: #64748b; stroke-width: 2; marker-end: url(#arrow); }
-      .box { stroke-width: 2; rx: 12; }
+      .title { font-family: "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 15px; font-weight: 700; fill: #334155; text-anchor: middle; }
+      .head { font-family: "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 17px; font-weight: 700; fill: #172033; text-anchor: middle; }
+      .body { font-family: "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 15px; fill: #334155; text-anchor: middle; }
+      .arrow { stroke: #64748b; stroke-width: 2.5; marker-end: url(#arrow); }
     </style>
   </defs>
-  <rect width="1250" height="250" fill="#ffffff"/>
-  <g class="edge">
-    <line x1="177" y1="125" x2="193" y2="125"/><line x1="353" y1="125" x2="369" y2="125"/>
-    <line x1="529" y1="125" x2="545" y2="125"/><line x1="705" y1="125" x2="721" y2="125"/>
-    <line x1="881" y1="125" x2="897" y2="125"/><line x1="1057" y1="125" x2="1073" y2="125"/>
+  <rect width="1200" height="250" rx="18" fill="#f8fafc"/>
+  <text class="title" x="600" y="29">导入选取 → 分析融合 → 自动建书</text>
+  <line class="arrow" x1="395" y1="137" x2="425" y2="137"/>
+  <line class="arrow" x1="775" y1="137" x2="805" y2="137"/>
+  <g filter="url(#shadow)">
+    <rect x="45" y="58" width="350" height="158" rx="16" fill="#ffffff" stroke="#0284c7" stroke-width="2.5"/>
+    <rect x="45" y="58" width="350" height="43" rx="16" fill="#e0f2fe"/>
+    <rect x="45" y="84" width="350" height="17" fill="#e0f2fe"/>
+    <rect x="425" y="58" width="350" height="158" rx="16" fill="#ffffff" stroke="#d97706" stroke-width="2.5"/>
+    <rect x="425" y="58" width="350" height="43" rx="16" fill="#fef3c7"/>
+    <rect x="425" y="84" width="350" height="17" fill="#fef3c7"/>
+    <rect x="805" y="58" width="350" height="158" rx="16" fill="#ffffff" stroke="#16a34a" stroke-width="2.5"/>
+    <rect x="805" y="58" width="350" height="43" rx="16" fill="#dcfce7"/>
+    <rect x="805" y="84" width="350" height="17" fill="#dcfce7"/>
   </g>
-  <g>
-    <rect class="box" x="25" y="83" width="152" height="84" fill="#e0f2fe" stroke="#0284c7"/>
-    <rect class="box" x="201" y="83" width="152" height="84" fill="#e0f2fe" stroke="#0284c7"/>
-    <rect class="box" x="377" y="83" width="152" height="84" fill="#fef3c7" stroke="#d97706"/>
-    <rect class="box" x="553" y="83" width="152" height="84" fill="#fee2e2" stroke="#dc2626"/>
-    <rect class="box" x="729" y="83" width="152" height="84" fill="#fef3c7" stroke="#d97706"/>
-    <rect class="box" x="905" y="83" width="152" height="84" fill="#fee2e2" stroke="#dc2626"/>
-    <rect class="box" x="1081" y="83" width="152" height="84" fill="#dcfce7" stroke="#16a34a"/>
+  <g class="head">
+    <text x="220" y="86">① 导入与选取</text>
+    <text x="600" y="86">② 分析与融合</text>
+    <text x="980" y="86">③ 建书与回填</text>
   </g>
-  <g class="label">
-    <text x="101" y="108"><tspan x="101">① 导入 TXT</tspan><tspan class="small" x="101" dy="21">填写书名</tspan></text>
-    <text x="277" y="103"><tspan x="277">② 自动分章与选取</tspan><tspan class="small" x="277" dy="20">≤10 万字全量</tspan><tspan class="small" x="277" dy="18">大文本：7 + 7 + 10</tspan></text>
-    <text x="453" y="103"><tspan x="453">③ 分批分析 API</tspan><tspan class="small" x="453" dy="20">每批 ≤25 章</tspan><tspan class="small" x="453" dy="18">最多 3 批并发</tspan></text>
-    <text x="629" y="103"><tspan x="629">④ JSON 校验 / 修复</tspan><tspan class="small" x="629" dy="20">失败可重试或跳过</tspan></text>
-    <text x="805" y="103"><tspan x="805">⑤ 资料融合 API</tspan><tspan class="small" x="805" dy="20">去重并整理冲突</tspan></text>
-    <text x="981" y="103"><tspan x="981">⑥ 严格失败时</tspan><tspan class="small" x="981" dy="20">可妥协融合</tspan></text>
-    <text x="1157" y="103"><tspan x="1157">⑦ 自动建书</tspan><tspan class="small" x="1157" dy="20">原作独立保存</tspan><tspan class="small" x="1157" dy="18">正文从第 1 章开始</tspan></text>
+  <g class="body">
+    <text x="220" y="127"><tspan x="220">TXT + 书名</tspan><tspan x="220" dy="23">自动分章</tspan><tspan x="220" dy="23">≤10 万字全量；大文本 7 + 7 + 10</tspan></text>
+    <text x="600" y="121"><tspan x="600">分批分析 API</tspan><tspan x="600" dy="22">每批 ≤25 章，最多 3 批并发</tspan><tspan x="600" dy="22">JSON 校验 / 修复，融合资料</tspan></text>
+    <text x="980" y="121"><tspan x="980">严格失败 → 妥协融合</tspan><tspan x="980" dy="22">自动创建新书并回填</tspan><tspan x="980" dy="22">原作独立保存，正文从第 1 章开始</tspan></text>
   </g>
 </svg>
