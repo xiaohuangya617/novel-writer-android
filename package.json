@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "test": "node tests/smoke.js"
+    "test": "node tests/smoke.js && node tests/continuation-142.cjs"
   },
   "devDependencies": {
     "playwright-core": "1.56.1"

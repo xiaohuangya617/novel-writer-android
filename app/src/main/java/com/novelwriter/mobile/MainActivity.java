@@ -148,11 +148,13 @@ public final class MainActivity extends Activity {
         exportFile(json, backupName("HTML"), "application/json", "HTML 项目存档已导出");
     }
 
-    private void exportBookText(String content, String bookName) {
-        String safeName = bookName.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+    private void exportBookText(String content, String bookName, String suffix) {
+        String safeName = bookName.replaceAll("[\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
         if (safeName.isEmpty()) safeName = "本书";
         if (safeName.length() > 60) safeName = safeName.substring(0, 60);
-        exportFile(content, safeName + "_正文.txt", "text/plain", "本书正文已导出");
+        String safeSuffix = (suffix == null ? "正文" : suffix).replaceAll("[\\/:*?\"<>|\\p{Cntrl}]", "_").trim();
+        if (safeSuffix.isEmpty()) safeSuffix = "正文";
+        exportFile(content, safeName + "_" + safeSuffix + ".txt", "text/plain", "本书正文已导出");
     }
 
     private void exportFile(String content, String fileName, String mime, String label) {
@@ -481,7 +483,7 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public void acknowledgeRequest(String id) { requests.acknowledge(id); }
         @JavascriptInterface public void exportProject(String json) { runOnUiThread(() -> MainActivity.this.exportProject(json)); }
         @JavascriptInterface public void exportHtmlProject(String json) { runOnUiThread(() -> MainActivity.this.exportHtmlProject(json)); }
-        @JavascriptInterface public void exportBookText(String content, String name) { runOnUiThread(() -> MainActivity.this.exportBookText(content, name)); }
+        @JavascriptInterface public void exportBookText(String content, String name, String suffix) { runOnUiThread(() -> MainActivity.this.exportBookText(content, name, suffix)); }
         @JavascriptInterface public void shareProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json, "App")); }
         @JavascriptInterface public void shareHtmlProject(String json) { runOnUiThread(() -> MainActivity.this.shareProject(json, "HTML")); }
         @JavascriptInterface public void chooseProject() { runOnUiThread(MainActivity.this::chooseProject); }

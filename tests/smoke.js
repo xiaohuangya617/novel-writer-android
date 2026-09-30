@@ -146,7 +146,7 @@ const saved = {
     await freshPage.locator('#archiveButton').click();
     assert.equal(await freshPage.locator('label[for="restoreFile"]').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(19, 109, 81)');
     assert.deepEqual(await freshPage.locator('#sheetBody .sheet-list > button, #sheetBody .sheet-list > label').allInnerTexts(), [
-      '导出本书正文（txt）', '导出/分享项目存档（app）',
+      '导出本书正文/含原作（txt）', '导出/分享项目存档（app）',
       '导出/分享项目存档（html）', '恢复项目存档（app）', '初始化所有数据'
     ]);
     await freshPage.locator('#closeSheet').click();
@@ -504,9 +504,19 @@ const saved = {
     await page.goto('https://app.local/index.html');
     assert.deepEqual(await page.evaluate(() => [state.readerFontSize, state.messageFontSize]), [20, 16]);
     await page.locator('#menuButton').click();
-    assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'forbiddenWords', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'strategy', 'fontSize', 'help', 'developer', 'version']);
+    assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'forbiddenWords', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'drafts', 'strategy', 'fontSize', 'help', 'developer', 'version']);
     assert.equal((await page.locator('.drawer-item[data-sheet="api"]').innerText()).trim(), 'AI设置');
     assert.equal((await page.locator('.drawer-item[data-sheet="globalRoles"]').innerText()).trim(), '素材角色库');
+    await page.locator('[data-sheet="drafts"]').click();
+    await page.locator('#addDraftNote').click();
+    await page.locator('#draftNoteName').fill('测试灵感');
+    await page.locator('#draftNoteContent').fill('不会发送给 AI');
+    await page.locator('#draftNoteForm button[type="submit"]').click();
+    assert.deepEqual(await page.evaluate(() => state.draftNotes.map(item => [item.name, item.content])), [['测试灵感', '不会发送给 AI']]);
+    assert.deepEqual(await page.evaluate(() => Object.keys(backupObject()).includes('draftNotes')), true);
+    assert.deepEqual(await page.evaluate(() => Object.keys(htmlBackupObject()).includes('draftNotes')), false);
+    await page.locator('#closeSheet').click();
+    await page.locator('#menuButton').click();
     assert.equal(await page.locator('#continueButton span').innerText(), '走向');
     assert.equal(await page.locator('#continueButton i').getAttribute('class'), 'fa-solid fa-brush');
     assert.equal(await page.locator('.drawer-label').count(), 0);
@@ -535,9 +545,9 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="help"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '使用说明');
-    assert.equal(await page.locator('.help-copy p').count(), 8);
+    assert.equal(await page.locator('.help-copy p').count(), 9);
     const helpText = await page.locator('.help-copy').innerText();
-    assert.ok(helpText.includes('素材角色') && helpText.includes('正文') && helpText.includes('App/HTML') && helpText.includes('第100章内完结'));
+    assert.ok(helpText.includes('素材角色') && helpText.includes('草稿本') && helpText.includes('正文') && helpText.includes('App/HTML') && helpText.includes('第100章内完结'));
     await page.locator('#closeSheet').click();
     const original = await page.evaluate(() => localStorage.getItem('novel_mobile_ui_demo_v1'));
     const invalid = { appArchiveVersion: 1, books: [{ ...saved.books[0], chatHistory: [null] }], globalActions: [], appConfig: saved.apiConfig };
@@ -662,12 +672,17 @@ const saved = {
     assert.ok(exportedText.startsWith('\uFEFF测试作品\r\n\r\n第1章 测试\r\n\r\n章节 1'));
     assert.ok(exportedText.indexOf('第1章 测试') < exportedText.indexOf('第100章 测试'));
     assert.ok(exportedText.endsWith('\r\n'));
+    const exportSourceBook = { ...saved.books[0], chapters: [{ id: 'source', title: '原作：原著', sourceChapter: true, content: '原作内容' }, ...saved.books[0].chapters.slice(0, 2)] };
+    const sequelOnlyText = await page.evaluate(data => bookText(data, false), exportSourceBook);
+    const withSourceText = await page.evaluate(data => bookText(data, true), exportSourceBook);
+    assert.equal(sequelOnlyText.includes('原作内容'), false);
+    assert.ok(withSourceText.indexOf('原作内容') < withSourceText.indexOf('第1章 测试'));
     await page.setViewportSize({ width: 320, height: 420 });
     await page.locator('[data-tab="messages"]').click();
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.41/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.43/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();

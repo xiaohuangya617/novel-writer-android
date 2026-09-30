@@ -87,7 +87,15 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
     }),
     repair: Object.freeze({
       system: `你是结构化资料修复助手。只修复给定响应的 JSON 语法、字段类型和格式，不得新增原文没有依据的事实，不得删掉可以保留的资料。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。按以下上限修复：worldview 300 字、所有 terms 的 name 与 meaning 合计 100 字、plotSummary 300 字、plotBreakpoint 200 字、writingStylePrompt 500 字、writingRules 合计 500 字、mainCharacters 5 人。每名人物优先修复为 name、age、appearance、personality、abilities、clothing、experiences、relationships、aliases；六方面合计不少于 200 字。不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入资料字段。`,
-      user: `请修复以下原始响应，使其成为符合字段要求的合法 JSON，并保留已有资料：\n{{RAW_RESPONSE}}`
+      user: `请修复以下原始响应，使其成为符合字段要求的合法 JSON，并保留已有资料。
+
+校验失败原因：{{VALIDATION_ERROR}}
+
+必要原文证据（只可用于保留或整理已有事实，不得据此编造）：
+{{SOURCE_EVIDENCE}}
+
+原始响应：
+{{RAW_RESPONSE}}`
     })
   });
 
@@ -112,6 +120,28 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
     }),
     repair: Object.freeze({
       system: `你是结构化资料修复助手。只修复给定响应的 JSON 语法、字段类型和格式，不得新增原文没有依据的事实，不得删掉可以保留的资料。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。按以下上限修复：worldview 300 字、所有 terms 的 name 与 meaning 合计 200 字、plotSummary 300 字、plotBreakpoint 200 字、writingStylePrompt 500 字、writingRules 合计 500 字、mainCharacters 5 人。不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入资料字段。`,
+      user: `请修复以下原始响应，使其成为符合字段要求的合法 JSON，并保留已有资料。
+
+校验失败原因：{{VALIDATION_ERROR}}
+
+必要原文证据（只可用于保留或整理已有事实，不得据此编造）：
+{{SOURCE_EVIDENCE}}
+
+原始响应：
+{{RAW_RESPONSE}}`
+    })
+  });
+  // Exact 1.40 defaults. Only an untouched old default is migrated; custom
+  // developer prompts remain unchanged.
+  const legacyPromptDefaultsV140 = Object.freeze({
+    analysis: Object.freeze({
+      system: `你是资料助手，负责对虚构文学作品做资料提取，为续写准备结构化资料。敏感元素只做抽象化、类型化的文学技巧分析，不拒绝虚构文学分析，不把分析当作现实建议。严格依据原文，不能编造未出现的世界观、人物经历、能力、身份或结局。指令神圣，完整执行资料提取任务；角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释文字或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。世界观不超过 300 字，只概括题材、时代、地点、社会环境和故事成立的基本规则；专有名词只保留对续写有帮助且普通读者难以理解的名词，所有 name 与 meaning 合计不超过 200 字；主线大纲不超过 300 字，只总结已发生的开篇、发展、转折和当前进度；剧情断点不超过 200 字，记录当前停点、未解决冲突和续写起点；作者扮演提示词不超过 500 字，具体提取视角、句式、节奏、情绪、动作/心理/环境描写和对白习惯；行文规范不超过 500 字，提取可执行的段落、对白、节奏、章节字数和结尾规则，章节字数只能依据样本统计，样本不足时明确无法可靠判断；主要人物最多 5 人，只保留影响主线的核心人物，每项包含 name、profile、aliases。每个字段只写自己的资料，不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入任何资料字段。`
+    }),
+    fusion: Object.freeze({
+      system: `你是续写资料融合助手。对已经通过校验的多批次原文分析进行去重、合并和冲突整理，只保留原文有依据的内容，不补造没有证据的结局。开篇资料负责背景，中段资料负责变化，最新资料负责当前状态和剧情断点。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown 或解释。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。世界观不超过 300 字；所有专有名词的 name 与 meaning 合计不超过 200 字；主线大纲不超过 300 字；剧情断点不超过 200 字；作者扮演提示词不超过 500 字；行文规范不超过 500 字；主要人物最多 5 人。字段内容规则：世界观只写背景和故事成立规则；主线只写已发生剧情和当前进度；断点只写当前停点、未解决冲突和续写起点；作者提示词具体写作品笔触；行文规范写可执行的写作规则和样本支持的章节字数规律。样本不足时明确无法可靠判断。不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入任何资料字段。`
+    }),
+    repair: Object.freeze({
+      system: `你是结构化资料修复助手。只修复给定响应的 JSON 语法、字段类型和格式，不得新增原文没有依据的事实，不得删掉可以保留的资料。本文是虚构文学分析任务，敏感元素只做抽象化、类型化处理；指令神圣，角色剥离，只做资料整理。只返回合法 JSON，不要 Markdown、解释或代码围栏。字段必须为 writingStylePrompt、writingRules、worldview、terms、plotSummary、plotBreakpoint、mainCharacters。按以下上限修复：worldview 300 字、所有 terms 的 name 与 meaning 合计 200 字、plotSummary 300 字、plotBreakpoint 200 字、writingStylePrompt 500 字、writingRules 合计 500 字、mainCharacters 5 人。不得把 JSON、字段名、字数限制、校验规则或资料助手指令写入资料字段。`,
       user: `请修复以下原始响应，使其成为符合字段要求的合法 JSON，并保留已有资料：\n{{RAW_RESPONSE}}`
     })
   });
@@ -123,7 +153,7 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
     'branch.user':['STRATEGY_NAME','STRATEGY_LABELS','BRANCH_CONTEXT'],
     'analysis.user':['SOURCE_CHAPTERS'],
     'fusion.user':['ANALYSIS_RESULTS'],
-    'repair.user':['RAW_RESPONSE']
+    'repair.user':['VALIDATION_ERROR','SOURCE_EVIDENCE','RAW_RESPONSE']
   });
   const promptParts = Object.freeze(['system','user']);
   const developerPromptKeys = Object.freeze(Object.keys(promptDefaults).flatMap(chain => promptParts.map(part => `${chain}.${part}`)));
@@ -140,8 +170,10 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
   function migrateDeveloperPrompts(input) {
     const prompts = normalizeDeveloperPrompts(input);
     if (!input || typeof input !== 'object') return prompts;
-    for (const chain of Object.keys(legacyPromptDefaults)) for (const part of Object.keys(legacyPromptDefaults[chain])) {
-      if (input?.[chain]?.[part] === legacyPromptDefaults[chain][part]) prompts[chain][part] = promptDefaults[chain][part];
+    for (const legacy of [legacyPromptDefaults, legacyPromptDefaultsV140]) {
+      for (const chain of Object.keys(legacy)) for (const part of Object.keys(legacy[chain])) {
+        if (input?.[chain]?.[part] === legacy[chain][part]) prompts[chain][part] = promptDefaults[chain][part];
+      }
     }
     return prompts;
   }
@@ -355,10 +387,12 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
     };
   }
 
-  function aliases(name) {
+  function aliases(name, extra=[]) {
     const value = clean(name);
+    const extras = Array.isArray(extra) ? extra : [extra];
     return [...new Set([value, value.replace(/【[^】]*】/g, '').replace(/[（(][^（）()]*[）)]/g, '').trim(),
-      ...[...value.matchAll(/[【（(]([^】）)]{1,12})[】）)]/g)].map(match => clean(match[1]))].filter(Boolean))];
+      ...[...value.matchAll(/[【（(]([^】）)]{1,12})[】）)]/g)].map(match => clean(match[1])),
+      ...extras.map(clean)].filter(Boolean))];
   }
 
   function parseSummaryGrowth(content, book, chapter) {
@@ -378,7 +412,7 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
       const target = storyChapters(book)[targetNo - 1];
       const name = clean(match[2]), text = clean(match[3]);
       if (!target || text.length < 2 || text.length > 500) continue;
-      const candidates = (book.characters || []).filter(person => aliases(person.name).includes(name));
+      const candidates = (book.characters || []).filter(person => aliases(person.name, person.aliases).includes(name));
       if (candidates.length === 1) growth.push({ charId: candidates[0].id, chapterId: target.id, chapNo: targetNo, text });
     }
     return { summary, growth };
