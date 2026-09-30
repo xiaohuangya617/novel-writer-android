@@ -12,7 +12,7 @@
 
 一个 Android AI 小说创作工具。本质上是对 DeepSeek 等兼容聊天补全接口的封装：模型负责生成文本，App 负责界面、书籍与章节管理、提示词组装、上下文整理、摘要与角色成长回流、续写作品、走向策略、存档和更新。
 
-**当前版本：1.45（正式版）** · 支持 Android 8.0 及以上 · [下载 APK](https://github.com/xiaohuangya617/novel-writer-android/raw/refs/heads/main/releases/1.45%E5%B0%8F%E8%AF%B4%E7%94%9F%E6%88%90%E5%99%A8.apk) · [查看历次发布](https://github.com/xiaohuangya617/novel-writer-android/releases)
+**当前版本：1.45（正式版）** · 支持 Android 8.0 及以上 · [下载 APK](https://github.com/xiaohuangya617/novel-writer-android/releases/download/1.45/1.45.apk) · [查看历次发布](https://github.com/xiaohuangya617/novel-writer-android/releases)
 
 ## 快速开始
 
