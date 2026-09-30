@@ -208,8 +208,9 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
   }
 
   function actionText(actions) {
-    if (!actions?.length) return '';
-    return '【必须严格遵守的动作描写规则】\n' + actions.map(action => {
+    const active = (actions || []).filter(action => action?.enabled !== false);
+    if (!active.length) return '';
+    return '【必须严格遵守的动作描写规则】\n' + active.map(action => {
       const fields = [
         action.keyPoints && `动作要领：${action.keyPoints}`,
         action.linesUsage && `台词运用：${action.linesUsage}`,
@@ -220,8 +221,9 @@ X 策略固定顺序为：①主动攻略 ②信息揭示 ③关系互动。
   }
 
   function costumeText(costumes) {
-    if (!costumes?.length) return '';
-    return '【必须保持一致的服装与外观规则】\n' + costumes.map(costume => {
+    const active = (costumes || []).filter(costume => costume?.enabled !== false);
+    if (!active.length) return '';
+    return '【必须保持一致的服装与外观规则】\n' + active.map(costume => {
       const fields = [
         costume.details && `服装资料：${costume.details}`,
         !costume.details && costume.styleDetail && `详细款式：${costume.styleDetail}`,

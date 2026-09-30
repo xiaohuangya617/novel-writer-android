@@ -242,6 +242,7 @@ const saved = {
     await freshPage.locator('#costumeForm button[type="submit"]').click();
     assert.deepEqual(await freshPage.evaluate(() => [state.globalCostumes.length, state.globalCostumes[0].details]), [1, '防水布料，袖口有旧划痕。']);
     assert.equal(await freshPage.locator('.library-row').first().evaluate(row => Math.round(row.getBoundingClientRect().height)), 78);
+    await freshPage.locator('[data-toggle-costume]').click();
     await freshPage.locator('[data-edit-costume]').click();
     await freshPage.locator('#editCostumeDetails').fill('修改后的服装资料');
     await freshPage.locator('#editCostumeForm button[type="submit"]').click();
@@ -682,7 +683,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.43/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.45/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();

@@ -1,18 +1,18 @@
 <p align="center">
-  <img src="icon-preview.png" width="128" alt="1.43 小说生成器应用图标" />
+  <img src="icon-preview.png" width="128" alt="1.45 小说生成器应用图标" />
 </p>
 
-<h1 align="center">1.43 小说生成器 Android</h1>
+<h1 align="center">1.45 小说生成器 Android</h1>
 
 <p align="center">
-  <a href="https://github.com/xiaohuangya617/novel-writer-android/releases"><img src="https://img.shields.io/badge/version-1.43-0f766e.svg" alt="版本 1.43" /></a>
+  <a href="https://github.com/xiaohuangya617/novel-writer-android/releases"><img src="https://img.shields.io/badge/version-1.45-0f766e.svg" alt="版本 1.45" /></a>
   <a href="https://developer.android.com/about/versions/oreo"><img src="https://img.shields.io/badge/Android-8.0%2B-3ddc84.svg" alt="Android 8.0 及以上" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2563eb.svg" alt="MIT License" /></a>
 </p>
 
 一个 Android AI 小说创作工具。本质上是对 DeepSeek 等兼容聊天补全接口的封装：模型负责生成文本，App 负责界面、书籍与章节管理、提示词组装、上下文整理、摘要与角色成长回流、续写作品、走向策略、存档和更新。
 
-**当前版本：1.43（正式版）** · 支持 Android 8.0 及以上 · [下载 APK](https://github.com/xiaohuangya617/novel-writer-android/releases/download/1.43/1.43.apk) · [查看历次发布](https://github.com/xiaohuangya617/novel-writer-android/releases)
+**当前版本：1.45（正式版）** · 支持 Android 8.0 及以上 · [下载 APK](https://github.com/xiaohuangya617/novel-writer-android/releases/download/1.45/1.45小说生成器.apk) · [查看历次发布](https://github.com/xiaohuangya617/novel-writer-android/releases)
 
 ## 快速开始
 
@@ -21,7 +21,7 @@
 3. 填写世界观、主线大纲、写作提示，按需配置角色、动作和服装资料。
 4. 在消息框输入本章要求并发送。正文生成后，App 会继续整理摘要和角色成长；“走向”会先给出三条续写方向，选中后再由你决定是否发送。
 
-1.43 是当前正式版。本版新增草稿本、原作参考章节独立宽屏阅读，以及 TXT 正文导出的“仅续作/含原作”范围选择；旧版本 APK 会保留在发布归档中。
+1.45 是当前正式版。本版优化动作库和服装库卡片操作：按钮顺序统一为编辑、开关、删除，启用状态只显示绿色开关图标，并增加一键操作后的快速到底部按钮。旧版本 APK 会保留在发布归档中。
 
 API 费用由你填写的服务商收取。App 内的费用只是根据接口用量做的估算。
 
@@ -87,6 +87,8 @@ npm test
 
 | 版本 | 主要变化 |
 | --- | --- |
+| **1.45** | 优化动作库和服装库卡片按钮顺序与启用状态显示；增加批量操作后的快速到底部按钮。 |
+| **1.44** | 普通新建作品禁止同名；动作库和服装库支持单卡与批量启用/屏蔽，新卡默认关闭。 |
 | **1.43** | 新增草稿本、原作参考章节独立宽屏阅读、TXT 正文仅续作/含原作二次选择导出。 |
 | **1.42** | 修复旧 Prompt 迁移、人物别名成长匹配、结构化 JSON 兼容、旧 profile 保留、人物重名合并和费用范围显示。 |
 | **1.41** | 结构化提取人物六方面资料并精准回填角色卡；专有名词限制为 100 字；保护自定义开发者 Prompt；调整续写消息和费用顺序。 |
