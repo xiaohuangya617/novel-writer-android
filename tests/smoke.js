@@ -514,6 +514,11 @@ const saved = {
     await page.locator('#draftNoteContent').fill('不会发送给 AI');
     await page.locator('#draftNoteForm button[type="submit"]').click();
     assert.deepEqual(await page.evaluate(() => state.draftNotes.map(item => [item.name, item.content])), [['测试灵感', '不会发送给 AI']]);
+    assert.equal(await page.locator('[data-copy-draft]').count(), 1);
+    await page.evaluate(() => { window.__copiedDraft = null; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async value => { window.__copiedDraft = value; } } }); });
+    await page.locator('[data-copy-draft]').click();
+    await page.waitForFunction(() => window.__copiedDraft === '不会发送给 AI');
+    assert.equal(await page.evaluate(() => window.__copiedDraft.includes('测试灵感')), false);
     assert.deepEqual(await page.evaluate(() => Object.keys(backupObject()).includes('draftNotes')), true);
     assert.deepEqual(await page.evaluate(() => Object.keys(htmlBackupObject()).includes('draftNotes')), false);
     await page.locator('#closeSheet').click();
@@ -683,7 +688,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.45/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.46/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();

@@ -2,6 +2,7 @@ package com.novelwriter.mobile;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ClipboardManager;
 import android.content.ClipData;
 import android.content.Intent;
 import android.os.Bundle;
@@ -478,6 +479,16 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> requests.submit(id, url, key, body, timeoutMs, durable));
         }
         @JavascriptInterface public void cancel(String id) { requests.cancel(id); }
+        @JavascriptInterface public boolean copyText(String text) {
+            try {
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (clipboard == null) return false;
+                clipboard.setPrimaryClip(ClipData.newPlainText("草稿内容", text == null ? "" : text));
+                return true;
+            } catch (Exception error) {
+                return false;
+            }
+        }
         @JavascriptInterface public void exitApp() { runOnUiThread(MainActivity.this::finish); }
         @JavascriptInterface public void replayRequest(String id) { requests.replay(id); }
         @JavascriptInterface public void acknowledgeRequest(String id) { requests.acknowledge(id); }

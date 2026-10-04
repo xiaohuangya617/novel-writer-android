@@ -286,7 +286,7 @@
     }
     window.nativeUpdateEvent=raw=>{try{const event=JSON.parse(raw);if(!event||typeof event.status!=='string')return;if(updateState.status==='cancelling'&&(event.status==='progress'||event.status==='downloaded'||event.status==='error'&&event.canCancel))return;updateState={...updateState,...event,message:Object.hasOwn(event,'message')?event.message:null,canDownload:!!event.canDownload,canCancel:!!event.canCancel};renderUpdatePanel()}catch(e){notify('更新信息无法读取')}};
     function versionSheet(){let version=`${NOVEL_APP_VERSION}（演示版）`;if(nativeHost)try{version=AndroidBridge.appVersion()}catch(e){version='未知'}openSheet('当前版本',`<p class="mini-note">小说生成器 ${esc(version)}</p><p class="mini-note version-repo">源代码：<a href="https://github.com/xiaohuangya617/novel-writer-android">https://github.com/xiaohuangya617/novel-writer-android</a></p><div class="update-panel" id="updatePanel"></div>`);renderUpdatePanel();if(nativeHost)AndroidBridge.refreshUpdate()}
-    function helpSheet(){openSheet('使用说明','<div class="help-copy"><p><strong>1. 开始使用：</strong>首次打开可新建书籍或恢复 App 存档；新建后进入“提示”页签，再到“AI设置”填写并测试 API。</p><p><strong>2. 资料与书架：</strong>书架管理用于新建、删除和切换作品；设定、提示、本书角色、动作、服装和禁用词会参与当前书创作。素材角色需先导入本书。</p><p><strong>3. 写作：</strong>在消息框输入要求后点“发送”；“走向”生成三条候选方向并回填消息框，“回填”“清空”“停止”分别处理草稿和任务。生成期间界面会锁定。</p><p><strong>4. 走向策略：</strong>默认 X 策略包含主动攻略、信息揭示、关系互动；H 策略包含主动攻略、被动转折、女主视角。可在侧边栏切换。</p><p><strong>5. 主线软约束：</strong>想在指定章节收束时，可在主线大纲开头写明“目标：在第100章内完结；优先解决现有主线，不再开启大型支线”。这是给 AI 的软引导。</p><p><strong>6. 阅读与字号：</strong>消息、正文、设定、提示可用页签切换；阅读模式支持连续阅读，切换章节或页签会退出并回到章节开头。字号调整范围 12–30px，默认正文 20px、消息 16px。</p><p><strong>7. 续写作品：</strong>从书架管理导入 TXT，软件自动分章、选取、分析、融合并创建新书；失败阶段可在浮窗中重试或跳过，完成后资料会回填到提示、设定和本书角色库。</p><p><strong>8. 草稿本：</strong>侧边栏 AI设置下方可记录灵感，支持新增、修改和删除，不会进入 AI 请求。</p><p><strong>9. 高级功能与存档：</strong>开发者选项连续点击 7 次解锁，可查看和修改实际发送给 API 的 6 条创作链 Prompt；修改前建议备份。原作参考章节也支持独立宽屏阅读。导出正文时可选择仅续作或含原作；普通新书没有原作时，含原作选项不可用。右上角还可导出 App/HTML 存档、恢复 App 存档、初始化数据；当前版本中可检查更新。</p></div>')}
+    function helpSheet(){openSheet('使用说明','<div class="help-copy"><p><strong>1. 开始使用：</strong>首次打开可新建书籍或恢复 App 存档；新建后进入“提示”页签，再到“AI设置”填写并测试 API。</p><p><strong>2. 资料与书架：</strong>书架管理用于新建、删除和切换作品；设定、提示、本书角色、动作、服装和禁用词会参与当前书创作。素材角色需先导入本书。</p><p><strong>3. 写作：</strong>在消息框输入要求后点“发送”；“走向”生成三条候选方向并回填消息框，“回填”“清空”“停止”分别处理草稿和任务。生成期间界面会锁定。</p><p><strong>4. 走向策略：</strong>默认 X 策略包含主动攻略、信息揭示、关系互动；H 策略包含主动攻略、被动转折、女主视角。可在侧边栏切换。</p><p><strong>5. 主线软约束：</strong>想在指定章节收束时，可在主线大纲开头写明“目标：在第100章内完结；优先解决现有主线，不再开启大型支线”。这是给 AI 的软引导。</p><p><strong>6. 阅读与字号：</strong>消息、正文、设定、提示可用页签切换；阅读模式支持连续阅读，切换章节或页签会退出并回到章节开头。字号调整范围 12–30px，默认正文 20px、消息 16px。</p><p><strong>7. 续写作品：</strong>从书架管理导入 TXT，软件自动分章、选取、分析、融合并创建新书；失败阶段可在浮窗中重试或跳过，完成后资料会回填到提示、设定和本书角色库。</p><p><strong>8. 草稿本：</strong>侧边栏 AI设置下方可记录灵感，支持新增、修改、复制和删除；复制只复制草稿内容，不包含标题，草稿不会进入 AI 请求。</p><p><strong>9. 高级功能与存档：</strong>开发者选项连续点击 7 次解锁，可查看和修改实际发送给 API 的 6 条创作链 Prompt；修改前建议备份。原作参考章节也支持独立宽屏阅读。导出正文时可选择仅续作或含原作；普通新书没有原作时，含原作选项不可用。右上角还可导出 App/HTML 存档、恢复 App 存档、初始化数据；当前版本中可检查更新。</p></div>')}
     function developerSheet(){
       if(!developerUnlocked){notify('开发者选项已锁定，请在菜单中连续点击 7 次');return}
       const defaults=NovelCore.defaultDeveloperPrompts(),currentPrompts=NovelCore.migrateDeveloperPrompts(state.developerPrompts);
@@ -427,11 +427,26 @@
         $('draftNoteForm').onsubmit=e=>{e.preventDefault();const name=$('draftNoteName').value.trim(),content=$('draftNoteContent').value;if(!name){notify('请填写草稿名称');return}const previous=state.draftNotes.slice(),id=editing?note.id:uid();if(!commitEdit(()=>{const value={id,name,content};if(editing)state.draftNotes=state.draftNotes.map(item=>item.id===id?value:item);else state.draftNotes=[...state.draftNotes,value]},()=>{state.draftNotes=previous}))return;draftNotesSheet();notify(editing?'草稿已修改':'草稿已保存')};
         return;
       }
-      const cards=notes.map(note=>`<div class="sheet-row library-row draft-row"><div class="row-info"><strong>${esc(note.name)}</strong><small>${esc(note.content||'暂无内容')}</small></div><button class="icon-btn" data-edit-draft="${esc(note.id)}" aria-label="编辑草稿 ${esc(note.name)}" title="编辑草稿"><i class="fa-solid fa-pen"></i></button><button class="icon-btn" data-delete-draft="${esc(note.id)}" aria-label="删除草稿 ${esc(note.name)}" title="删除草稿"><i class="fa-solid fa-trash"></i></button></div>`).join('');
+      const cards=notes.map(note=>`<div class="sheet-row library-row draft-row"><div class="row-info"><strong>${esc(note.name)}</strong><small>${esc(note.content||'暂无内容')}</small></div><button class="icon-btn" data-edit-draft="${esc(note.id)}" aria-label="编辑草稿 ${esc(note.name)}" title="编辑草稿"><i class="fa-solid fa-pen"></i></button><button class="icon-btn" data-copy-draft="${esc(note.id)}" aria-label="复制草稿内容 ${esc(note.name)}" title="复制草稿内容"><i class="fa-regular fa-copy"></i></button><button class="icon-btn" data-delete-draft="${esc(note.id)}" aria-label="删除草稿 ${esc(note.name)}" title="删除草稿"><i class="fa-solid fa-trash"></i></button></div>`).join('');
       openSheet('草稿本',`<p class="mini-note">记录灵感、片段和待办。草稿不会进入任何 AI 请求。</p><button class="btn primary wide" id="addDraftNote"><i class="fa-solid fa-plus"></i> 新增草稿</button><div class="sheet-list" style="margin-top:12px">${cards||'<p class="mini-note">暂无草稿</p>'}</div>`);
       $('addDraftNote').onclick=()=>draftNotesSheet('new');
       $('sheetBody').querySelectorAll('[data-edit-draft]').forEach(el=>el.onclick=()=>draftNotesSheet(el.dataset.editDraft));
+      $('sheetBody').querySelectorAll('[data-copy-draft]').forEach(el=>el.onclick=()=>copyDraftContent(el.dataset.copyDraft));
       $('sheetBody').querySelectorAll('[data-delete-draft]').forEach(el=>el.onclick=()=>{const id=el.dataset.deleteDraft,note=state.draftNotes.find(item=>item.id===id);if(!note)return;openSheet('确认删除草稿',`<p class="mini-note">删除“${esc(note.name)}”？此操作无法撤销。</p><div class="sheet-actions"><button class="btn" id="cancelDeleteDraft">取消</button><button class="btn danger" id="confirmDeleteDraft">删除草稿</button></div>`);$('cancelDeleteDraft').onclick=draftNotesSheet;$('confirmDeleteDraft').onclick=()=>{const previous=state.draftNotes.slice();if(!commitEdit(()=>{state.draftNotes=state.draftNotes.filter(item=>item.id!==id)},()=>{state.draftNotes=previous}))return;draftNotesSheet();notify('草稿已删除')}});
+    }
+    function copyDraftContent(id){
+      const note=(state.draftNotes||[]).find(item=>item.id===id);
+      if(!note)return;
+      if(!String(note.content||'')){notify('草稿内容为空');return}
+      const fallback=()=>{
+        const area=document.createElement('textarea');area.value=note.content;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();
+        let copied=false;try{copied=document.execCommand('copy')}catch(error){}area.remove();notify(copied?'草稿内容已复制':'复制失败，请检查剪贴板权限');
+      };
+      if(nativeHost&&typeof AndroidBridge.copyText==='function'){
+        try{notify(AndroidBridge.copyText(note.content)?'草稿内容已复制':'复制失败，请检查剪贴板权限')}catch(error){fallback()}
+        return;
+      }
+      if(navigator.clipboard?.writeText)navigator.clipboard.writeText(note.content).then(()=>notify('草稿内容已复制')).catch(fallback);else fallback();
     }
     function booksSheet(){openSheet('书架管理',`<div class="sheet-list"><button class="btn wide" id="manageAddBook"><i class="fa-solid fa-plus"></i> 新建作品</button><button class="btn wide warn" id="manageDeleteBook" ${state.books.length?'':'disabled'}><i class="fa-solid fa-trash"></i> 删除作品</button><button class="btn wide" id="manageContinueBook"><i class="fa-solid fa-pen-nib"></i> 续写作品</button></div><div class="sheet-list" style="margin-top:18px">${state.books.map(item=>`<div class="sheet-row"><strong>${esc(item.name)}</strong><small>${storyChapters(item).length} 章</small></div>`).join('')||'<p class="mini-note">暂无作品</p>'}</div>`);$('manageAddBook').onclick=newBookSheet;$('manageDeleteBook').onclick=deleteBookSheet;$('manageContinueBook').onclick=()=>{continuationReset();continuationImport()}}
     function forbiddenWordKey(word){return String(word||'').trim().normalize('NFC')}
@@ -492,7 +507,7 @@
         if(status<200||status>=300){const hint={401:'API Key 无效或未获授权',402:'账户余额不足',429:'请求过于频繁'}[status];throw Error(hint||data.error?.message||`请求失败（HTTP ${status}）`)}
         const content=extractAIText(data),finishReason=data.choices?.[0]?.finish_reason||data.candidates?.[0]?.finishReason||'';
         if(requireContent&&!content.trim())throw Error(finishReason?`AI 未返回正文（${finishReason}）`:'AI 返回了空内容');
-        return {content:content.trim(),finishReason,usage:data.usage?{...data.usage,_pricedAt:requestedAt,_model:cfg.model,_url:cfg.url}:null};
+        return {content:content.trim(),finishReason,durationMs:Math.max(0,Date.now()-requestedAt),usage:data.usage?{...data.usage,_pricedAt:requestedAt,_model:cfg.model,_url:cfg.url}:null};
       }catch(err){if(controller.signal.aborted&&controller.signal.reason==='timeout')throw Error('timeout');throw err}finally{clearTimeout(timer)}
     }
     function parseAIJson(text){const clean=text.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();try{return JSON.parse(clean)}catch(e){const start=Math.min(...['{','['].map(c=>{const n=clean.indexOf(c);return n<0?Infinity:n}));const end=Math.max(clean.lastIndexOf('}'),clean.lastIndexOf(']'));if(!Number.isFinite(start)||end<start)throw Error('AI 返回格式不完整，请重试');return JSON.parse(clean.slice(start,end+1))}}
@@ -515,7 +530,10 @@
       const rates=period==='peak'?[4,200,800]:[2,100,400];
       return hit*rates[0]+miss*rates[1]+usage.completion_tokens*rates[2];
     }
-    function costLabel(usages){const units=usages.map(costFenUnits);if(units.some(value=>value===null))return '费用暂不可得';const fen=Math.round(units.reduce((a,b)=>a+b,0)/1e6);return `本次费用估算 ¥${(fen/100).toFixed(2)}`}
+    function costLabel(usages){const units=usages.map(costFenUnits);if(units.some(value=>value===null))return '费用暂不可得';const fen=Math.round(units.reduce((a,b)=>a+b,0)/1e6);return `本次费用估算 ￥${(fen/100).toFixed(2)}`}
+    function generatedWordCount(value){return Array.from(String(value||'').replace(/^\s*#{1,6}\s*/gm,'').replace(/\s/g,'')).length}
+    function elapsedLabel(durationMs){const seconds=Math.max(1,Math.round(Number(durationMs||0)/1000));if(seconds<60)return `${seconds}秒`;const minutes=Math.floor(seconds/60),rest=seconds%60;return rest?`${minutes}分${rest}秒`:`${minutes}分`}
+    function generationStatsLabel(usage,text,durationMs,growthCount=null){const parts=[costLabel([usage]),`生成字数${generatedWordCount(text)}字`,`耗费${elapsedLabel(durationMs)}`];if(growthCount!==null)parts.push(`新增成长${growthCount}条`);return parts.join('，')}
     function createTask(current,label,phase){const task={id:uid(),bookId:current.id,controller:new AbortController(),label,phase,developerPrompts:NovelCore.migrateDeveloperPrompts(state.developerPrompts)};activeTask=task;render();return task}
     function taskSnapshot(task){return {requestId:task.requestId||null,bookId:task.bookId,phase:task.phase,label:task.label,instruction:task.instruction||'',continuation:!!task.continuation,strategy:NovelCore.normalizeBranchStrategy(task.strategy||state.branchStrategy),chapterId:task.chapterId||null,firstUsage:task.firstUsage||null,developerPrompts:task.developerPrompts,startedAt:task.startedAt||Date.now()}}
     async function taskRequest(task,cfg,body,timeoutMs,replay=false){
@@ -553,6 +571,8 @@
         current.pendingInstruction='';current.draft='';current.draftContinuation=false;
         delete current.pendingDirections;
         task.phase='summary';task.label=truncated?'正文可能被截断，正在整理摘要与角色成长…':'正文已保存，正在生成摘要与角色成长…';task.firstUsage=result.usage;task.chapterId=chapter.id;task.contentSnapshot=content;task.instruction=instruction;
+        current.chatHistory ||= [];
+        current.chatHistory.push({role:'assistant',content:`第 ${storyChapterNumber(current,chapter)} 章《${chapter.title}》已生成${truncated?'（正文可能未完）':''}。`,costLabel:generationStatsLabel(result.usage,content,result.durationMs),ts:Date.now()});
         const finishedRequestId=task.requestId;task.requestId=null;
         if(nativeHost)state.pendingNativeTask=taskSnapshot(task);
         if(!saveState()){const error=Error('本地保存失败，请保持应用打开并导出存档');error.storageFailure=true;throw error}
@@ -569,7 +589,7 @@
       chapter.summary=data.summary;NovelCore.applyGrowth(current,data.growth);
       const index=storyChapterNumber(current,chapter);
       delete chapter.pendingSummary;delete chapter.pendingSummaryUsage;
-      const message={role:'assistant',content:`第 ${index} 章《${chapter.title}》已生成${chapter.truncated?'（正文可能未完）':''}，摘要与角色成长已更新。`,costLabel:costLabel([task.firstUsage,result.usage]),ts:Date.now()};
+      const message={role:'assistant',content:`第 ${index} 章《${chapter.title}》的摘要与角色成长已更新。`,costLabel:generationStatsLabel(result.usage,data.summary,result.durationMs,data.growth.length),ts:Date.now()};
       current.chatHistory.push(message);
       if(finishTask(task))notify('新章节已加入作品');else{message.content='摘要与角色成长已生成，但保存失败。请保持应用打开并导出存档。';message.error=true;render()}
     }
