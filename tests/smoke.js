@@ -233,6 +233,16 @@ const saved = {
     await freshPage.locator('#menuButton').click();
     await freshPage.locator('[data-sheet="actions"]').click();
     assert.equal(await freshPage.locator('#sheetTitle').innerText(), '全局动作库');
+     const actionScroll = await freshPage.evaluate(() => {
+       state.actions = Array.from({ length: 24 }, (_, index) => ({ id: `scroll-action-${index}`, name: `动作${index}`, keyPoints: '滚动回归资料', enabled: true }));
+       actionSheet();
+       const sheet = document.querySelector('#sheetBackdrop .sheet');
+       sheet.scrollTop = Math.max(0, sheet.scrollHeight - sheet.clientHeight - 24);
+       const before = sheet.scrollTop;
+       Array.from(document.querySelectorAll('[data-toggle-action]')).at(-1)?.click();
+       return { before, after: sheet.scrollTop };
+     });
+     assert.ok(Math.abs(actionScroll.after - actionScroll.before) <= 1, '动作开关重绘后不应回到顶部');
     await freshPage.locator('#closeSheet').click();
     await freshPage.locator('#menuButton').click();
     await freshPage.locator('[data-sheet="costumes"]').click();
@@ -251,6 +261,17 @@ const saved = {
       const prompt=NovelCore.systemPrompt(book(),state.actions,state.globalCostumes);
       return prompt.includes('必须保持一致的服装与外观规则')&&prompt.includes('修改后的服装资料');
     }));
+     const costumeScroll = await freshPage.evaluate(() => {
+       state.globalCostumes.push(...Array.from({ length: 23 }, (_, index) => ({ id: `scroll-costume-${index}`, name: `服装${index}`, details: '滚动回归资料', enabled: true })));
+       costumeSheet();
+       const sheet = document.querySelector('#sheetBackdrop .sheet');
+       sheet.scrollTop = Math.max(0, sheet.scrollHeight - sheet.clientHeight - 24);
+       const before = sheet.scrollTop;
+       Array.from(document.querySelectorAll('[data-toggle-costume]')).at(-1)?.click();
+       return { before, after: sheet.scrollTop };
+     });
+     assert.ok(Math.abs(costumeScroll.after - costumeScroll.before) <= 1, '服装开关重绘后不应回到顶部');
+     await freshPage.evaluate(() => { state.globalCostumes = state.globalCostumes.slice(0, 1); costumeSheet(); });
     const costumeArchive = await freshPage.evaluate(() => ({ app: backupObject(), html: htmlBackupObject() }));
     assert.equal(costumeArchive.app.globalCostumes[0].details, '修改后的服装资料');
     assert.equal(costumeArchive.html.globalCostumes[0].styleDetail, '修改后的服装资料');
@@ -504,10 +525,17 @@ const saved = {
     await page.route('https://api.deepseek.com/**', route => { requestCount++; route.abort(); });
     await page.goto('https://app.local/index.html');
     assert.deepEqual(await page.evaluate(() => [state.readerFontSize, state.messageFontSize]), [20, 16]);
+    assert.equal(await page.evaluate(() => generationStatsLabel([null], ['正文', '摘要'], 87000, 1)), '费用暂不可得，字数4字，耗费1分27秒，新增成长1条');
     await page.locator('#menuButton').click();
     assert.deepEqual(await page.locator('.drawer-item[data-sheet]').evaluateAll(items => items.map(item => item.dataset.sheet)), ['books', 'forbiddenWords', 'actions', 'costumes', 'globalRoles', 'roles', 'growth', 'api', 'drafts', 'strategy', 'fontSize', 'help', 'developer', 'version']);
     assert.equal((await page.locator('.drawer-item[data-sheet="api"]').innerText()).trim(), 'AI设置');
     assert.equal((await page.locator('.drawer-item[data-sheet="globalRoles"]').innerText()).trim(), '素材角色库');
+    await page.locator('[data-sheet="books"]').click();
+    assert.deepEqual(await page.locator('.book-actions button').evaluateAll(items => items.map(item => item.id)), ['manageAddBook', 'manageContinueBook', 'manageDeleteBook']);
+    assert.deepEqual(await page.locator('.book-actions button').evaluateAll(items => items.map(item => item.innerText.trim())), ['原创作品', '续写作品', '删除作品']);
+    assert.ok(await page.locator('.book-actions').evaluate(el => { const buttons=[...el.querySelectorAll('button')].map(item=>item.getBoundingClientRect()); return buttons.every(item=>item.top===buttons[0].top&&item.bottom===buttons[0].bottom) && buttons[2].left>buttons[1].left&&buttons[1].left>buttons[0].left; }));
+    await page.locator('#closeSheet').click();
+    await page.locator('#menuButton').click();
     await page.locator('[data-sheet="drafts"]').click();
     await page.locator('#addDraftNote').click();
     await page.locator('#draftNoteName').fill('测试灵感');
@@ -688,7 +716,7 @@ const saved = {
     await page.locator('#menuButton').click();
     await page.locator('[data-sheet="version"]').click();
     assert.equal(await page.locator('#sheetTitle').innerText(), '当前版本');
-    assert.match(await page.locator('#sheetBody').innerText(), /1\.46/);
+    assert.match(await page.locator('#sheetBody').innerText(), /1\.47/);
     assert.equal(await page.locator('.version-repo a').getAttribute('href'), 'https://github.com/xiaohuangya617/novel-writer-android');
     assert.ok(await page.locator('.version-repo').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
     await page.locator('#closeSheet').click();
